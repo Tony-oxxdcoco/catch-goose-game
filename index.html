@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>抓大鹅</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:#1a1f2e;overflow:hidden;
+  font-family:'PingFang SC','Microsoft YaHei',sans-serif;
+  touch-action:none;-webkit-user-select:none;user-select:none
+}
+canvas{display:block}
+
+#hud{
+  position:fixed;top:0;left:0;right:0;height:50px;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 14px;z-index:20;gap:8px
+}
+#level-text{color:#fff;font-size:15px;font-weight:700;white-space:nowrap}
+#rem-wrap{color:rgba(255,255,255,.7);font-size:13px;white-space:nowrap}
+#score-text{color:#FFD700;font-size:16px;font-weight:700;white-space:nowrap}
+
+#goose-bubble{
+  position:fixed;top:58px;left:50%;
+  transform:translateX(-50%) translateY(-4px);
+  background:#fff;border-radius:18px;
+  padding:7px 16px;font-size:15px;font-weight:600;color:#333;
+  box-shadow:0 4px 16px rgba(0,0,0,.22);pointer-events:none;
+  z-index:25;opacity:0;transition:opacity .3s,transform .3s;
+  max-width:240px;text-align:center;white-space:nowrap
+}
+#goose-bubble.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#goose-bubble::after{
+  content:'';position:absolute;bottom:-9px;left:50%;
+  transform:translateX(-50%);
+  border:5px solid transparent;border-top-color:#fff
+}
+
+#tray-wrap{
+  position:fixed;bottom:0;left:0;right:0;
+  padding:8px 8px 18px;
+  background:linear-gradient(0deg,rgba(0,0,0,.88) 80%,transparent);
+  z-index:20
+}
+#tray{display:flex;justify-content:center;gap:5px;max-width:500px;margin:0 auto}
+.slot{
+  flex:1;max-width:62px;height:62px;
+  border:2px solid rgba(255,255,255,.15);border-radius:12px;
+  background:rgba(255,255,255,.06);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-size:27px;position:relative;
+  transition:border-color .15s,background .15s
+}
+.slot.filled{border-color:rgba(255,255,255,.4)}
+.slot-label{font-size:9px;color:rgba(255,255,255,.65);margin-top:2px;line-height:1}
+.slot.pop{animation:slotPop .32s ease forwards}
+@keyframes slotPop{
+  0%{transform:scale(1)}
+  40%{transform:scale(1.28) rotate(6deg)}
+  100%{transform:scale(0) rotate(-15deg);opacity:0}
+}
+
+.match-flash{
+  position:fixed;inset:0;pointer-events:none;z-index:15;
+  background:rgba(255,240,80,.09);animation:mflash .35s ease-out forwards
+}
+@keyframes mflash{0%{opacity:1}100%{opacity:0}}
+
+#ctrl{
+  position:fixed;bottom:105px;right:12px;
+  display:flex;flex-direction:column;gap:8px;z-index:20
+}
+.cbtn{
+  width:52px;height:52px;border-radius:50%;border:none;
+  font-size:22px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 12px rgba(0,0,0,.5);
+  transition:transform .1s;-webkit-tap-highlight-color:transparent
+}
+.cbtn:active{transform:scale(.85)}
+#btn-shake{background:linear-gradient(135deg,#ff7043,#e64a19)}
+#btn-undo{background:linear-gradient(135deg,#42a5f5,#1565c0)}
+
+.screen{
+  position:fixed;inset:0;display:none;
+  flex-direction:column;align-items:center;justify-content:center;
+  z-index:50;padding:24px;text-align:center
+}
+.screen.on{display:flex}
+#scr-start{background:radial-gradient(ellipse at 50% 60%,#243b55,#141e30)}
+.goose-anim{font-size:90px;animation:bob 2s ease-in-out infinite;display:block;margin-bottom:8px}
+@keyframes bob{0%,100%{transform:translateY(0)rotate(-4deg)}50%{transform:translateY(-16px)rotate(4deg)}}
+.scr-title{color:#fff;font-size:40px;font-weight:800;margin-bottom:8px}
+.scr-sub{color:rgba(255,255,255,.55);font-size:13px;line-height:1.8;margin-bottom:28px;max-width:280px}
+#scr-win{background:rgba(5,30,55,.93)}
+#scr-lose{background:rgba(30,5,5,.93)}
+.scr-emoji{font-size:72px;margin-bottom:12px}
+.scr-h{color:#fff;font-size:26px;font-weight:700;margin-bottom:8px}
+.scr-msg{color:rgba(255,255,255,.6);font-size:14px;margin-bottom:28px}
+.btn{
+  padding:13px 44px;font-size:17px;font-weight:700;
+  border:none;border-radius:40px;cursor:pointer;
+  color:#fff;font-family:inherit;margin:5px;
+  -webkit-tap-highlight-color:transparent;
+  transition:transform .1s;box-shadow:0 6px 20px rgba(0,0,0,.4)
+}
+.btn:active{transform:scale(.92)}
+.btn-primary{background:linear-gradient(135deg,#ff7043,#e64a19)}
+.btn-secondary{background:linear-gradient(135deg,#42a5f5,#1565c0)}
+
+#toast{
+  position:fixed;top:55px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,.78);color:#fff;font-size:14px;
+  padding:6px 18px;border-radius:20px;pointer-events:none;
+  z-index:60;opacity:0;transition:opacity .25s;white-space:nowrap
+}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <span id="level-text">第1关</span>
+  <span id="rem-wrap">剩 <b id="rem-n">0</b> 件</span>
+  <span id="score-text">🏆 0</span>
+</div>
+
+<div id="goose-bubble"></div>
+<canvas id="c"></canvas>
+<div id="tray-wrap"><div id="tray"></div></div>
+
+<div id="ctrl">
+  <button class="cbtn" id="btn-shake" title="颠锅">🍳</button>
+  <button class="cbtn" id="btn-undo"  title="撤回">↩️</button>
+</div>
+
+<div class="screen on" id="scr-start">
+  <span class="goose-anim">🪿</span>
+  <div class="scr-title">抓大鹅</div>
+  <p class="scr-sub">
+    点击物品放入暂存栏<br>
+    凑齐 <b style="color:#FFD700">3 个相同</b>即可消除<br>
+    消光所有物品 → 抓住大鹅！<br>
+    🍳 摇晃手机或点颠锅翻底层
+  </p>
+  <button class="btn btn-primary" id="btn-start">开始游戏</button>
+</div>
+
+<div class="screen" id="scr-win">
+  <div class="scr-emoji">🎉</div>
+  <div class="scr-h">抓到了！</div>
+  <p class="scr-msg" id="win-msg">太棒了！</p>
+  <button class="btn btn-primary" id="btn-next">下一关 →</button>
+  <button class="btn btn-secondary" id="btn-retry2">再玩一次</button>
+</div>
+
+<div class="screen" id="scr-lose">
+  <div class="scr-emoji">😅</div>
+  <div class="scr-h">暂存栏满了！</div>
+  <p class="scr-msg">大鹅跑了……再来一次？</p>
+  <button class="btn btn-primary" id="btn-retry">重新挑战</button>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script>
+'use strict';
+
+const TYPES = [
+  {id:'carrot',   label:'胡萝卜', e:'🥕',  color:0xff8c00},
+  {id:'broccoli', label:'西蓝花', e:'🥦',  color:0x2e7d32},
+  {id:'tomato',   label:'番茄',   e:'🍅',  color:0xc62828},
+  {id:'corn',     label:'玉米',   e:'🌽',  color:0xffcc00},
+  {id:'apple',    label:'苹果',   e:'🍎',  color:0xdd1111},
+  {id:'lemon',    label:'柠檬',   e:'🍋',  color:0xfdd835},
+  {id:'egg',      label:'鸡蛋',   e:'🥚',  color:0xfff0c0},
+  {id:'mushroom', label:'蘑菇',   e:'🍄',  color:0x8d4513},
+  {id:'onion',    label:'洋葱',   e:'🧅',  color:0x9c27b0},
+  {id:'garlic',   label:'大蒜',   e:'🧄',  color:0xddddaa},
+  {id:'pepper',   label:'辣椒',   e:'🌶',  color:0xd32f2f},
+  {id:'potato',   label:'土豆',   e:'🥔',  color:0x8b7355},
+];
+
+const TRAY_CAP = 7;
+const LEVELS = [
+  {t:5,  g:2, label:'第1关'},
+  {t:7,  g:2, label:'第2关'},
+  {t:8,  g:3, label:'第3关'},
+  {t:10, g:3, label:'第4关'},
+  {t:12, g:3, label:'第5关'},
+];
+
+const GOOSE_SERVER = 'http://localhost:3001/goose';
+const FALLBACK = {
+  pickup:    ['哼，被拿走了', '嘎！', '放下！', '别动！'],
+  match:     ['呱！消了！', '嘎嘎漂亮！', '连消！', '厉害～'],
+  shake:     ['嘎嘎嘎！别晃！', '呱！晕了！', '颠什么颠！'],
+  near_lose: ['嘎！快满了！', '呱呱！危险！', '哈哈快输了！'],
+  win:       ['被你找到了...', '呱...输了...', '嗯...算你厉害'],
+  lose:      ['嘎嘎嘎赢了！', '呱！你输了！', '哈哈哈！'],
+};
+
+// ── Three.js setup ────────────────────────────────────────────────
+let scene, camera, renderer, raycaster, hoveredItem = null;
+
+function initThree() {
+  const cv = document.getElementById('c');
+  renderer = new THREE.WebGLRenderer({canvas:cv, antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setClearColor(0x1a1f2e, 1);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x1a1f2e, 18, 30);
+
+  camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+  camera.position.set(0, 9, 11);
+  camera.lookAt(0, 0, 0);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const sun = new THREE.DirectionalLight(0xfff8e1, 0.9);
+  sun.position.set(4, 10, 6);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 30;
+  sun.shadow.camera.left = -8; sun.shadow.camera.right = 8;
+  sun.shadow.camera.top = 8;   sun.shadow.camera.bottom = -8;
+  scene.add(sun);
+  const fill = new THREE.DirectionalLight(0x88aaff, 0.3);
+  fill.position.set(-4, 3, -4);
+  scene.add(fill);
+
+  const ground = new THREE.Mesh(
+    new THREE.CircleGeometry(7, 48),
+    new THREE.MeshLambertMaterial({color:0x111827})
+  );
+  ground.rotation.x = -Math.PI/2;
+  ground.position.y = -0.9;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  raycaster = new THREE.Raycaster();
+  onResize();
+  window.addEventListener('resize', onResize);
+}
+
+function onResize() {
+  renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+}
+
+// ── Geometry helpers ──────────────────────────────────────────────
+function matL(color) { return new THREE.MeshLambertMaterial({color}); }
+function mk(geo, color) { const m = new THREE.Mesh(geo, matL(color)); m.castShadow = true; return m; }
+function sp(r, c, sw=10, sh=8) { return mk(new THREE.SphereGeometry(r,sw,sh), c); }
+function cy(rt, rb, h, c, s=8) { return mk(new THREE.CylinderGeometry(rt,rb,h,s), c); }
+function co(r, h, c, s=8)      { return mk(new THREE.ConeGeometry(r,h,s), c); }
+function bx(w, h, d, c)        { return mk(new THREE.BoxGeometry(w,h,d), c); }
+
+// ── Item 3D builders ──────────────────────────────────────────────
+function buildCarrot() {
+  const g = new THREE.Group();
+  const body = co(0.19, 0.48, 0xff8c00);
+  body.rotation.x = Math.PI; body.position.y = -0.02; g.add(body);
+  for (let i = 0; i < 3; i++) {
+    const a = (i/3)*Math.PI*2;
+    const leaf = co(0.045, 0.22, 0x2e7d32, 5);
+    leaf.position.set(Math.cos(a)*0.06, 0.22, Math.sin(a)*0.06);
+    leaf.rotation.z = Math.cos(a)*0.45; leaf.rotation.x = Math.sin(a)*0.25; g.add(leaf);
+  }
+  return g;
+}
+
+function buildBroccoli() {
+  const g = new THREE.Group();
+  const stem = cy(0.05, 0.07, 0.28, 0x33691e); stem.position.y = -0.14; g.add(stem);
+  const head = sp(0.17, 0x2e7d32); head.position.y = 0.08; g.add(head);
+  for (let i = 0; i < 6; i++) {
+    const a = (i/6)*Math.PI*2;
+    const b = sp(0.075, 0x388e3c, 7, 5);
+    b.position.set(Math.cos(a)*0.13, 0.1, Math.sin(a)*0.13); g.add(b);
+  }
+  return g;
+}
+
+function buildTomato() {
+  const g = new THREE.Group();
+  g.add(sp(0.21, 0xc62828));
+  const top = sp(0.075, 0x2e7d32, 7, 5); top.position.y = 0.18; g.add(top);
+  const stem = cy(0.018, 0.018, 0.09, 0x2d7000); stem.position.y = 0.26; g.add(stem);
+  return g;
+}
+
+function buildCorn() {
+  const g = new THREE.Group();
+  g.add(cy(0.1, 0.085, 0.43, 0xffcc00));
+  for (let i = 0; i < 3; i++) {
+    const a = (i/3)*Math.PI*2;
+    const leaf = bx(0.055, 0.32, 0.02, 0x2e7d32);
+    leaf.position.set(Math.cos(a)*0.12, -0.14, Math.sin(a)*0.12);
+    leaf.rotation.y = a; leaf.rotation.z = Math.cos(a)*0.38; g.add(leaf);
+  }
+  return g;
+}
+
+function buildApple() {
+  const g = new THREE.Group();
+  const body = sp(0.21, 0xc62828); body.scale.y = 0.87; g.add(body);
+  const stem = cy(0.022, 0.018, 0.11, 0x5a3010); stem.position.y = 0.23; g.add(stem);
+  const leaf = bx(0.09, 0.055, 0.02, 0x2e7d32);
+  leaf.position.set(0.08, 0.3, 0); leaf.rotation.z = -0.45; g.add(leaf);
+  return g;
+}
+
+function buildLemon() {
+  const g = new THREE.Group();
+  const body = sp(0.17, 0xfdd835); body.scale.x = 1.42; body.scale.z = 0.92; g.add(body);
+  for (const s of [-1, 1]) {
+    const tip = co(0.04, 0.065, 0xf9a825, 6);
+    tip.position.x = s*0.27; tip.rotation.z = s > 0 ? -Math.PI/2 : Math.PI/2; g.add(tip);
+  }
+  return g;
+}
+
+function buildEgg() {
+  const g = new THREE.Group();
+  const body = sp(0.17, 0xfff8e7); body.scale.y = 1.28; body.scale.x = 0.88; g.add(body);
+  return g;
+}
+
+function buildMushroom() {
+  const g = new THREE.Group();
+  const cap = sp(0.21, 0x8d4513); cap.scale.y = 0.48; cap.position.y = 0.11; g.add(cap);
+  const under = mk(new THREE.CylinderGeometry(0.19,0.11,0.045,10), 0xfaebd7);
+  under.position.y = 0.01; g.add(under);
+  const stem = cy(0.07, 0.09, 0.24, 0xfaebd7); stem.position.y = -0.17; g.add(stem);
+  for (let i = 0; i < 4; i++) {
+    const a = (i/4)*Math.PI*2;
+    const dot = sp(0.03, 0xfafafa, 5, 4);
+    dot.position.set(Math.cos(a)*0.12, 0.14, Math.sin(a)*0.12); g.add(dot);
+  }
+  return g;
+}
+
+function buildOnion() {
+  const g = new THREE.Group();
+  const body = sp(0.19, 0x9c27b0); body.scale.y = 0.88; g.add(body);
+  for (let i = 0; i < 3; i++) {
+    const a = (i/3)*Math.PI*2;
+    const s = cy(0.018, 0.012, 0.16, 0x2e7d32);
+    s.position.set(Math.cos(a)*0.045, 0.21, Math.sin(a)*0.045);
+    s.rotation.z = Math.cos(a)*0.28; s.rotation.x = Math.sin(a)*0.28; g.add(s);
+  }
+  return g;
+}
+
+function buildGarlic() {
+  const g = new THREE.Group();
+  const body = sp(0.17, 0xfafafa); body.scale.y = 0.82; g.add(body);
+  for (let i = 0; i < 5; i++) {
+    const a = (i/5)*Math.PI*2;
+    const clove = sp(0.055, 0xeee0c0, 6, 5);
+    clove.position.set(Math.cos(a)*0.14, -0.04, Math.sin(a)*0.14);
+    clove.scale.y = 1.5; g.add(clove);
+  }
+  const tip = co(0.035, 0.09, 0xd4c4a0, 5); tip.position.y = 0.17; g.add(tip);
+  return g;
+}
+
+function buildPepper() {
+  const g = new THREE.Group();
+  const body = sp(0.12, 0xd32f2f); body.scale.y = 2.1; body.scale.x = 0.75; body.position.y = -0.05;
+  g.add(body);
+  const stem = cy(0.018, 0.015, 0.09, 0x2d7000); stem.position.y = 0.22; g.add(stem);
+  return g;
+}
+
+function buildPotato() {
+  const g = new THREE.Group();
+  const body = sp(0.19, 0x8b7355); body.scale.set(1.0, 0.83, 1.12); g.add(body);
+  for (let i = 0; i < 4; i++) {
+    const a = (i/4)*Math.PI*2;
+    const eye = sp(0.027, 0x6d5930, 5, 4);
+    eye.position.set(Math.cos(a)*0.16, Math.sin(a*0.6)*0.08, Math.sin(a)*0.16); g.add(eye);
+  }
+  return g;
+}
+
+const BUILDERS = [
+  buildCarrot, buildBroccoli, buildTomato, buildCorn,
+  buildApple, buildLemon, buildEgg, buildMushroom,
+  buildOnion, buildGarlic, buildPepper, buildPotato,
+];
+
+function buildGooseModel() {
+  const g = new THREE.Group();
+  const body = sp(0.5, 0xfafafa, 14, 10); body.scale.y = 0.78; g.add(body);
+  const neck = cy(0.13, 0.1, 0.28, 0xfafafa);
+  neck.position.set(0, 0.47, 0.22); neck.rotation.x = -0.52; g.add(neck);
+  const head = sp(0.18, 0xfafafa, 10, 8); head.position.set(0, 0.71, 0.42); g.add(head);
+  const beak = co(0.04, 0.19, 0xff8c00, 6);
+  beak.position.set(0, 0.69, 0.64); beak.rotation.x = Math.PI/2; g.add(beak);
+  for (const x of [0.1, -0.1]) {
+    const eye = sp(0.034, 0x111111, 5, 4); eye.position.set(x, 0.79, 0.53); g.add(eye);
+  }
+  for (const s of [1, -1]) {
+    const wing = sp(0.28, 0xeaeaea, 8, 6);
+    wing.scale.set(0.48, 0.28, 0.95);
+    wing.position.set(s*0.47, 0.02, 0.04); wing.rotation.z = s*0.35; g.add(wing);
+  }
+  for (const x of [0.14, -0.14]) {
+    const leg = cy(0.028, 0.028, 0.22, 0xff8c00); leg.position.set(x, -0.51, 0.05); g.add(leg);
+    const foot = bx(0.12, 0.025, 0.14, 0xff8c00); foot.position.set(x, -0.63, 0.1); g.add(foot);
+  }
+  return g;
+}
+
+// ── Item class ────────────────────────────────────────────────────
+class Item {
+  constructor(typeIdx) {
+    this.typeIdx = typeIdx;
+    const ti = TYPES[typeIdx];
+    this.type = ti.id; this.label = ti.label; this.emoji = ti.e;
+    this.id = Math.random().toString(36).slice(2,9);
+    this.inPile = false; this.animating = false;
+    this.group = BUILDERS[typeIdx]();
+    this.group.traverse(c => { if (c.isMesh) c._item = this; });
+    this.group._item = this;
+  }
+  addToScene(pos) {
+    if (pos) this.group.position.copy(pos);
+    scene.add(this.group); this.inPile = true;
+  }
+  removeFromScene() { scene.remove(this.group); this.inPile = false; }
+}
+
+// ── Position generation (always fresh – fixes shake clustering) ───
+// Organic pile: power-law radial bias (dense center) + parabolic
+// mound height (center taller) + full random angle/jitter.
+function genPositions(count) {
+  const R = 2.4;
+  const pts = [];
+  for (let i = 0; i < count; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    // pow > 1 → heavily biased toward center; ~65% of items land in inner half
+    const r = R * Math.pow(Math.random(), 1.9);
+    const t = r / R; // 0 = center, 1 = outer edge
+    // Parabolic mound: center items stack up to ~1.5 units high, edges near 0
+    const y = Math.max(0, (1 - t * t) * 1.5 * Math.random() + Math.random() * 0.25);
+    pts.push({
+      x: Math.cos(ang) * r + (Math.random() - 0.5) * 0.3,
+      y,
+      z: Math.sin(ang) * r + (Math.random() - 0.5) * 0.3,
+    });
+  }
+  return pts;
+}
+
+// ── Tween system ──────────────────────────────────────────────────
+const tweens = [];
+function tweenPos(obj, target, dur) {
+  for (let i = tweens.length-1; i >= 0; i--)
+    if (tweens[i].obj === obj) tweens.splice(i, 1);
+  tweens.push({
+    obj,
+    sx:obj.position.x, sy:obj.position.y, sz:obj.position.z,
+    tx:target.x, ty:target.y, tz:target.z,
+    t0:performance.now(), dur:dur*1000
+  });
+}
+function stepTweens(now) {
+  for (let i = tweens.length-1; i >= 0; i--) {
+    const tw = tweens[i];
+    const t  = Math.min(1, (now - tw.t0) / tw.dur);
+    const e  = 1 - Math.pow(1-t, 3);
+    tw.obj.position.set(
+      tw.sx + (tw.tx - tw.sx)*e,
+      tw.sy + (tw.ty - tw.sy)*e,
+      tw.sz + (tw.tz - tw.sz)*e
+    );
+    if (t >= 1) tweens.splice(i, 1);
+  }
+}
+
+// ── Pick-up animation (3-phase: rise → swell → shrink+fly) ───────
+function playPickupAnim(item, onDone) {
+  const g = item.group;
+  const sy = g.position.y;
+  const t0 = performance.now();
+  function tick(now) {
+    const dt = (now - t0) / 1000;
+    if (dt < 0.2) {
+      const p = dt / 0.2;
+      const e = 1 - Math.pow(1-p, 2);
+      g.position.y = sy + e * 0.55;
+      g.scale.setScalar(1 + Math.sin(p*Math.PI)*0.38);
+      g.rotation.y += 0.1;
+      g.rotation.z = Math.sin(p*Math.PI)*0.2;
+      requestAnimationFrame(tick);
+    } else if (dt < 0.4) {
+      const p = (dt - 0.2) / 0.2;
+      g.position.y = sy + 0.55 + p*p*0.8;
+      g.scale.setScalar(Math.max(0.02, 1.35 - p*1.38));
+      g.rotation.y += 0.14;
+      requestAnimationFrame(tick);
+    } else {
+      onDone();
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+// ── Particles ─────────────────────────────────────────────────────
+function spawnParticles(color) {
+  const ox = (Math.random()-0.5)*2, oz = (Math.random()-0.5)*1.5;
+  for (let i = 0; i < 8; i++) {
+    const p = new THREE.Mesh(
+      new THREE.SphereGeometry(0.055, 4, 4),
+      new THREE.MeshBasicMaterial({color})
+    );
+    p.position.set(ox, 1.5, oz); scene.add(p);
+    const a = (i/8)*Math.PI*2;
+    const spd = 0.038 + Math.random()*0.04;
+    const vx = Math.cos(a)*spd, vz = Math.sin(a)*spd, vy = 0.06 + Math.random()*0.05;
+    let t = 0;
+    const iv = setInterval(() => {
+      t++;
+      p.position.x += vx; p.position.z += vz; p.position.y += vy - t*0.004;
+      const s = Math.max(0, 1 - t*0.055);
+      p.scale.setScalar(s);
+      if (s < 0.01) { scene.remove(p); clearInterval(iv); }
+    }, 16);
+  }
+}
+
+// ── Goose speech (Fable 5 via local server, fallback to preset) ───
+const bubbleEl = document.getElementById('goose-bubble');
+let bubbleTmr = null;
+function showBubble(text) {
+  bubbleEl.textContent = '🪿 ' + text;
+  bubbleEl.classList.add('show');
+  clearTimeout(bubbleTmr);
+  bubbleTmr = setTimeout(() => bubbleEl.classList.remove('show'), 3200);
+}
+async function gooseSpeak(event) {
+  const lines = FALLBACK[event] || ['呱！'];
+  const fallback = lines[Math.floor(Math.random()*lines.length)];
+  try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 2400);
+    const resp = await fetch(GOOSE_SERVER, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({event}),
+      signal: ctrl.signal
+    });
+    clearTimeout(tid);
+    if (resp.ok) {
+      const d = await resp.json();
+      if (d.text) { showBubble(d.text); return; }
+    }
+  } catch {}
+  showBubble(fallback);
+}
+
+// ── Game state ────────────────────────────────────────────────────
+const G = {
+  level:0, score:0,
+  items:[], tray:[], pendingPicks:0,
+  goose:null, gooseOn:false,
+  running:false, history:[],
+};
+
+function clearLevel() {
+  G.items.forEach(it => scene.remove(it.group));
+  G.items = [];
+  if (G.goose) { scene.remove(G.goose); G.goose = null; }
+  G.tray = []; G.history = []; G.pendingPicks = 0;
+  G.gooseOn = false; G.running = false;
+  tweens.length = 0;
+  if (hoveredItem) { hoveredItem.group.scale.setScalar(1); hoveredItem = null; }
+}
+
+function startLevel(idx) {
+  clearLevel();
+  const lv = LEVELS[Math.min(idx, LEVELS.length-1)];
+  const pool = [];
+  for (let ti = 0; ti < lv.t; ti++)
+    for (let g = 0; g < lv.g; g++)
+      for (let k = 0; k < 3; k++) pool.push(ti);
+  shuffle(pool);
+
+  const positions = genPositions(pool.length);
+  G.items = pool.map((ti, i) => {
+    const item = new Item(ti);
+    item.group.rotation.y = Math.random() * Math.PI * 2;
+    // ~15% of items lie on their side, the rest lean randomly up to ±55°
+    item.group.rotation.x = Math.random() < 0.15
+      ? (Math.random() < 0.5 ? 1 : -1) * (Math.PI / 2 + (Math.random() - 0.5) * 0.5)
+      : (Math.random() - 0.5) * 1.1;
+    item.group.rotation.z = (Math.random() - 0.5) * 0.9;
+    item.addToScene(new THREE.Vector3(positions[i].x, positions[i].y, positions[i].z));
+    return item;
+  });
+
+  G.goose = buildGooseModel();
+  G.goose.scale.setScalar(0.7);
+  G.goose.position.set(0, -6, 0);
+  G.goose.visible = false;
+  G.goose.traverse(c => { if (c.isMesh) c._isGoose = true; });
+  G.goose._isGoose = true;
+  scene.add(G.goose);
+
+  G.running = true;
+  document.getElementById('level-text').textContent = lv.label;
+  rebuildTrayDOM(); updateTrayUI(); updateRem();
+}
+
+// ── Core pick logic ───────────────────────────────────────────────
+function pickItem(item) {
+  if (!G.running || !item.inPile || item.animating) return;
+  if (G.tray.length + G.pendingPicks >= TRAY_CAP) { flashTrayDanger(); return; }
+
+  G.history.push({
+    item,
+    origPos: item.group.position.clone(),
+    origRotY: item.group.rotation.y,
+    trayCopy: [...G.tray],
+  });
+
+  item.inPile = false; item.animating = true; G.pendingPicks++;
+  if (hoveredItem === item) { hoveredItem.group.scale.setScalar(1); hoveredItem = null; }
+  if (Math.random() < 0.2) gooseSpeak('pickup');
+
+  playPickupAnim(item, () => {
+    scene.remove(item.group);
+    item.group.scale.setScalar(1);
+    item.group.rotation.set(0, 0, 0);
+    item.animating = false; G.pendingPicks--;
+
+    G.tray.push(item);
+    G.tray.sort((a,b) => a.typeIdx - b.typeIdx);
+
+    const matched = consumeMatches();
+    if (matched > 0) {
+      G.score += 30 * matched; syncScore();
+      showMatchFlash(); gooseSpeak('match');
+    } else if (G.tray.length >= 5 && Math.random() < 0.35) {
+      gooseSpeak('near_lose');
+    }
+
+    checkWin(); updateTrayUI(); updateRem();
+
+    if (G.running && G.tray.length >= TRAY_CAP) setTimeout(doLose, 450);
+  });
+}
+
+function pickGoose() {
+  if (!G.gooseOn || !G.running) return;
+  doWin();
+}
+
+function consumeMatches() {
+  let total = 0, found = true;
+  while (found) {
+    found = false;
+    for (let i = 0; i <= G.tray.length-3; i++) {
+      if (G.tray[i].typeIdx === G.tray[i+1].typeIdx && G.tray[i+1].typeIdx === G.tray[i+2].typeIdx) {
+        spawnParticles(TYPES[G.tray[i].typeIdx].color);
+        G.tray.splice(i, 3);
+        total++; found = true; break;
+      }
+    }
+  }
+  return total;
+}
+
+function checkWin() {
+  if (G.gooseOn) return;
+  const inPile = G.items.filter(it => it.inPile).length;
+  if (inPile === 0 && G.pendingPicks === 0 && G.tray.length === 0) {
+    G.gooseOn = true;
+    G.goose.visible = true;
+    tweenPos(G.goose, {x:0, y:-0.2, z:1.5}, 0.75);
+    toast('🪿 快去抓大鹅！');
+    gooseSpeak('win');
+  }
+}
+
+function doWin() {
+  G.running = false;
+  G.score += 100 + G.level*30; syncScore();
+  document.getElementById('win-msg').textContent =
+    `得分 ${G.score} 分！${G.level < LEVELS.length-1 ? '继续下一关吧～' : '你是抓鹅冠军！'}`;
+  showScr('scr-win');
+}
+
+function doLose() {
+  if (!G.running) return;
+  G.running = false;
+  gooseSpeak('lose');
+  showScr('scr-lose');
+}
+
+// ── Shake: generate fresh positions (fixes rapid-shake clustering)
+function doShake() {
+  if (!G.running) return;
+  const active = G.items.filter(it => it.inPile && !it.animating);
+  if (active.length < 2) return;
+  const fresh = genPositions(active.length);
+  active.forEach((it, i) => {
+    tweenPos(it.group, fresh[i], 0.45 + Math.random()*0.2);
+    it.group.rotation.y += (Math.random()-0.5)*Math.PI*2;
+  });
+  gooseSpeak('shake');
+  toast('🍳 颠锅！底层翻上来了～');
+}
+
+// ── Undo ──────────────────────────────────────────────────────────
+function doUndo() {
+  if (!G.running || G.history.length === 0) return;
+  if (G.items.some(it => it.animating)) return;
+
+  const snap = G.history.pop();
+  const item = snap.item;
+  const ti = G.tray.indexOf(item);
+  if (ti !== -1) G.tray.splice(ti, 1);
+
+  item.group.position.copy(snap.origPos);
+  item.group.rotation.set(0, snap.origRotY, 0);
+  item.group.scale.setScalar(1);
+  item.group.visible = true;
+  item.animating = false;
+  scene.add(item.group);
+  item.inPile = true;
+
+  updateTrayUI(); updateRem();
+}
+
+// ── Tray DOM ──────────────────────────────────────────────────────
+function rebuildTrayDOM() {
+  const el = document.getElementById('tray');
+  el.innerHTML = '';
+  for (let i = 0; i < TRAY_CAP; i++) {
+    const s = document.createElement('div');
+    s.className = 'slot'; s.id = `s${i}`; el.appendChild(s);
+  }
+}
+
+function updateTrayUI() {
+  for (let i = 0; i < TRAY_CAP; i++) {
+    const s = document.getElementById(`s${i}`);
+    if (!s) continue;
+    const item = G.tray[i];
+    if (item) {
+      const c = TYPES[item.typeIdx].color;
+      const hex = '#' + c.toString(16).padStart(6,'0');
+      s.innerHTML = `<span>${item.emoji}</span><div class="slot-label">${item.label}</div>`;
+      s.className = 'slot filled';
+      s.style.background = hex + '22';
+      s.style.borderColor = hex + '99';
+    } else {
+      s.innerHTML = ''; s.className = 'slot';
+      s.style.background = ''; s.style.borderColor = '';
+    }
+  }
+}
+
+function flashTrayDanger() {
+  const el = document.getElementById('tray-wrap');
+  el.style.background = 'linear-gradient(0deg,rgba(255,50,50,.55) 80%,transparent)';
+  setTimeout(() => el.style.background = '', 380);
+}
+
+function showMatchFlash() {
+  const d = document.createElement('div'); d.className = 'match-flash';
+  document.body.appendChild(d); setTimeout(() => d.remove(), 400);
+}
+
+function updateRem() {
+  document.getElementById('rem-n').textContent =
+    G.items.filter(it => it.inPile).length + G.pendingPicks;
+}
+function syncScore() { document.getElementById('score-text').textContent = `🏆 ${G.score}`; }
+
+// ── Screens / Toast ───────────────────────────────────────────────
+function showScr(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+}
+function hideScrAll() { document.querySelectorAll('.screen').forEach(s => s.classList.remove('on')); }
+
+let toastTmr;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('on');
+  clearTimeout(toastTmr);
+  toastTmr = setTimeout(() => el.classList.remove('on'), 1900);
+}
+
+// ── Raycasting (walk parent chain to find _item / _isGoose) ──────
+function hitTest(cx, cy) {
+  const r = renderer.domElement.getBoundingClientRect();
+  const x = ((cx - r.left)/r.width)*2 - 1;
+  const y = -((cy - r.top)/r.height)*2 + 1;
+  raycaster.setFromCamera({x,y}, camera);
+
+  const meshes = [];
+  G.items.forEach(it => {
+    if (it.inPile && !it.animating)
+      it.group.traverse(c => { if (c.isMesh) meshes.push(c); });
+  });
+  if (G.gooseOn && G.goose && G.goose.visible)
+    G.goose.traverse(c => { if (c.isMesh) meshes.push(c); });
+
+  if (!meshes.length) return null;
+  const hits = raycaster.intersectObjects(meshes);
+  if (!hits.length) return null;
+
+  let obj = hits[0].object;
+  while (obj) {
+    if (obj._item) return obj._item;
+    if (obj._isGoose) return 'goose';
+    obj = obj.parent;
+  }
+  return null;
+}
+
+function handleClick(cx, cy) {
+  const hit = hitTest(cx, cy);
+  if (!hit) return;
+  if (hit === 'goose') pickGoose();
+  else pickItem(hit);
+}
+
+function handleHover(cx, cy) {
+  if (!G.running) return;
+  const hit = hitTest(cx, cy);
+  const item = (hit && hit !== 'goose') ? hit : null;
+
+  if (hoveredItem && hoveredItem !== item) {
+    hoveredItem.group.scale.setScalar(1); hoveredItem = null;
+  }
+  if (item && item.inPile && !item.animating) {
+    item.group.scale.setScalar(1.12); hoveredItem = item;
+    renderer.domElement.style.cursor = 'pointer';
+  } else {
+    renderer.domElement.style.cursor = (hit === 'goose' && G.gooseOn) ? 'grab' : 'default';
+  }
+}
+
+// ── Input ─────────────────────────────────────────────────────────
+function initInput() {
+  const cv = document.getElementById('c');
+  cv.addEventListener('mousemove', e => handleHover(e.clientX, e.clientY));
+  cv.addEventListener('click',     e => handleClick(e.clientX, e.clientY));
+  cv.addEventListener('touchstart', e => e.preventDefault(), {passive:false});
+  cv.addEventListener('touchend',   e => {
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    handleClick(t.clientX, t.clientY);
+  }, {passive:false});
+
+  document.getElementById('btn-shake').addEventListener('click', doShake);
+  document.getElementById('btn-undo').addEventListener('click', doUndo);
+
+  document.getElementById('btn-start').addEventListener('click', () => {
+    G.score = 0; G.level = 0; syncScore(); hideScrAll(); startLevel(0);
+  });
+  document.getElementById('btn-next').addEventListener('click', () => {
+    G.level = Math.min(G.level+1, LEVELS.length-1); hideScrAll(); startLevel(G.level);
+  });
+  document.getElementById('btn-retry').addEventListener('click', () => {
+    hideScrAll(); startLevel(G.level);
+  });
+  document.getElementById('btn-retry2').addEventListener('click', () => {
+    hideScrAll(); startLevel(G.level);
+  });
+
+  // Physical device shake → 颠锅
+  let lx = null, ly = null, lz = null, lastShake = 0;
+  if (window.DeviceMotionEvent) {
+    window.addEventListener('devicemotion', e => {
+      const a = e.accelerationIncludingGravity; if (!a) return;
+      if (lx !== null) {
+        const d = Math.abs(a.x-lx) + Math.abs(a.y-ly) + Math.abs(a.z-lz);
+        const now = Date.now();
+        if (d > 22 && now - lastShake > 900) { lastShake = now; doShake(); }
+      }
+      lx = a.x; ly = a.y; lz = a.z;
+    });
+    document.getElementById('btn-shake').addEventListener('click', () => {
+      if (typeof DeviceMotionEvent.requestPermission === 'function')
+        DeviceMotionEvent.requestPermission().catch(()=>{});
+    });
+  }
+}
+
+// ── Utility ───────────────────────────────────────────────────────
+function shuffle(a) {
+  for (let i = a.length-1; i > 0; i--) {
+    const j = (Math.random()*(i+1))|0;
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+}
+
+// ── Render loop ───────────────────────────────────────────────────
+function loop(now) {
+  requestAnimationFrame(loop);
+  stepTweens(now);
+  if (G.running) {
+    G.items.forEach(it => {
+      if (it.inPile && !it.animating && it !== hoveredItem)
+        it.group.rotation.y += 0.003;
+    });
+    if (G.gooseOn && G.goose && G.goose.visible && !tweens.some(t => t.obj === G.goose)) {
+      G.goose.position.y = -0.2 + Math.sin(now * 0.002) * 0.1;
+      G.goose.rotation.y += 0.007;
+    }
+  }
+  renderer.render(scene, camera);
+}
+
+// ── Boot ──────────────────────────────────────────────────────────
+initThree();
+rebuildTrayDOM();
+initInput();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

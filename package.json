@@ -1,0 +1,11 @@
+{
+  "name": "catch-goose-game",
+  "version": "1.0.0",
+  "description": "抓大鹅 × Fable 5",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.0"
+  }
+}
