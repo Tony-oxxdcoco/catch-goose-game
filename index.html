@@ -22,6 +22,7 @@ canvas{display:block}
 #level-text{color:#fff;font-size:15px;font-weight:700;white-space:nowrap}
 #rem-wrap{color:rgba(255,255,255,.7);font-size:13px;white-space:nowrap}
 #score-text{color:#FFD700;font-size:16px;font-weight:700;white-space:nowrap}
+#revive-cnt{color:#ff7eb3;font-size:14px;font-weight:700;white-space:nowrap}
 #btn-mute{
   background:none;border:none;cursor:pointer;
   font-size:20px;padding:2px 6px;border-radius:8px;
@@ -132,6 +133,7 @@ canvas{display:block}
   <span id="level-text">第1关</span>
   <span id="rem-wrap">剩 <b id="rem-n">0</b> 件</span>
   <span id="score-text">🏆 0</span>
+  <span id="revive-cnt">💊×2</span>
   <button id="btn-mute">🔊</button>
 </div>
 
@@ -168,7 +170,8 @@ canvas{display:block}
   <div class="scr-emoji">😅</div>
   <div class="scr-h">暂存栏满了！</div>
   <p class="scr-msg">大鹅跑了……再来一次？</p>
-  <button class="btn btn-primary" id="btn-retry">重新挑战</button>
+  <button class="btn btn-primary" id="btn-revive" style="background:linear-gradient(135deg,#e91e63,#c2185b)">💊 复活 (剩余×2)</button>
+  <button class="btn btn-secondary" id="btn-retry">重新挑战</button>
 </div>
 
 <div id="toast"></div>
@@ -194,11 +197,16 @@ const TYPES = [
 
 const TRAY_CAP = 7;
 const LEVELS = [
-  {t:5,  g:2, label:'第1关'},
-  {t:7,  g:2, label:'第2关'},
-  {t:8,  g:3, label:'第3关'},
-  {t:10, g:3, label:'第4关'},
-  {t:12, g:3, label:'第5关'},
+  {t:4,  g:2, label:'第1关'},   // 24 items
+  {t:5,  g:2, label:'第2关'},   // 30
+  {t:6,  g:2, label:'第3关'},   // 36
+  {t:7,  g:3, label:'第4关'},   // 63
+  {t:8,  g:3, label:'第5关'},   // 72
+  {t:9,  g:3, label:'第6关'},   // 81
+  {t:10, g:3, label:'第7关'},   // 90
+  {t:11, g:3, label:'第8关'},   // 99
+  {t:12, g:3, label:'第9关'},   // 108
+  {t:12, g:4, label:'第10关'},  // 144 — 大师关
 ];
 
 const GOOSE_SERVER = 'http://localhost:3001/goose';
@@ -243,14 +251,33 @@ function initThree() {
   fill.position.set(-4, 3, -4);
   scene.add(fill);
 
+  // Ground platform
   const ground = new THREE.Mesh(
-    new THREE.CircleGeometry(7, 48),
-    new THREE.MeshLambertMaterial({color:0x111827})
+    new THREE.CircleGeometry(7, 64),
+    new THREE.MeshLambertMaterial({color:0x0f1622})
   );
   ground.rotation.x = -Math.PI/2;
   ground.position.y = -0.9;
   ground.receiveShadow = true;
   scene.add(ground);
+
+  // Inner play-area highlight ring
+  const innerRing = new THREE.Mesh(
+    new THREE.RingGeometry(3.0, 3.28, 72),
+    new THREE.MeshBasicMaterial({color:0x2a4a7a, transparent:true, opacity:0.45, side:THREE.DoubleSide})
+  );
+  innerRing.rotation.x = -Math.PI/2;
+  innerRing.position.y = -0.88;
+  scene.add(innerRing);
+
+  // Outer glow ring
+  const outerRing = new THREE.Mesh(
+    new THREE.RingGeometry(3.28, 3.5, 72),
+    new THREE.MeshBasicMaterial({color:0x1a3a6a, transparent:true, opacity:0.25, side:THREE.DoubleSide})
+  );
+  outerRing.rotation.x = -Math.PI/2;
+  outerRing.position.y = -0.87;
+  scene.add(outerRing);
 
   raycaster = new THREE.Raycaster();
   onResize();
@@ -420,22 +447,21 @@ class Item {
   removeFromScene() { scene.remove(this.group); this.inPile = false; }
 }
 
-// ── Position generation: Poisson-disk blue-noise on flat plane ────
-// Each new item is placed at the candidate that maximizes distance
-// to all existing items — gives even spacing with a center bias.
+// ── Position generation: blue-noise Poisson-disk, flat plane ─────
 function genPositions(count) {
-  const R   = 3.2;          // scatter radius
-  const MD2 = 0.62 * 0.62;  // desired min inter-item distance²
+  // Radius scales up for larger item counts so they spread out naturally
+  const R   = 2.6 + count * 0.006;  // ~2.8 for 30, ~3.4 for 108, ~3.5 for 144
+  const MD2 = 0.46 * 0.46;          // allow mild overlap (items just touching)
   const pts = [];
 
   for (let i = 0; i < count; i++) {
     let best = null, bestD2 = -1;
-    const tries = Math.min(50 + i * 2, 120);
+    const tries = Math.min(45 + i, 100);
     for (let t = 0; t < tries; t++) {
       const ang = Math.random() * Math.PI * 2;
-      const r   = R * Math.pow(Math.random(), 1.5); // mild center bias
-      const x   = Math.cos(ang) * r + (Math.random() - 0.5) * 0.22;
-      const z   = Math.sin(ang) * r + (Math.random() - 0.5) * 0.22;
+      const r   = R * Math.pow(Math.random(), 1.6); // center-biased
+      const x   = Math.cos(ang) * r + (Math.random() - 0.5) * 0.2;
+      const z   = Math.sin(ang) * r + (Math.random() - 0.5) * 0.2;
       let minD2 = Infinity;
       for (const p of pts) {
         const d2 = (p.x - x) * (p.x - x) + (p.z - z) * (p.z - z);
@@ -443,10 +469,10 @@ function genPositions(count) {
       }
       if (best === null || minD2 > bestD2) {
         best = { x, z }; bestD2 = minD2;
-        if (minD2 >= MD2) break; // good enough
+        if (minD2 >= MD2) break;
       }
     }
-    pts.push({ x: best.x, y: Math.random() * 0.2, z: best.z });
+    pts.push({ x: best.x, y: Math.random() * 0.18, z: best.z });
   }
   return pts;
 }
@@ -538,7 +564,7 @@ async function gooseSpeak(event) {
 }
 
 // ── Audio system ──────────────────────────────────────────────────
-let AC = null, masterGain = null, bgmTimer = null, isMuted = false, reverbNode = null;
+let AC = null, masterGain = null, bgmTimer = null, isMuted = false;
 
 function ensureAudio() {
   if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
@@ -596,122 +622,132 @@ function sfxGoose() {
   mod.start(t); osc.start(t); mod.stop(t+0.5); osc.stop(t+0.5);
 }
 
-// BGM: ambient A-minor pentatonic — pads + bass + sparse melody, ~23s loop
-// Convolution reverb bus (single impulse created once per AudioContext)
-function makeReverb() {
-  const dur = 2.0, decay = 2.2;
-  const len = Math.round(AC.sampleRate * dur);
-  const buf = AC.createBuffer(2, len, AC.sampleRate);
-  for (let c = 0; c < 2; c++) {
-    const d = buf.getChannelData(c);
-    for (let i = 0; i < len; i++) d[i] = (Math.random()*2-1) * Math.pow(1-i/len, decay);
-  }
-  const conv = AC.createConvolver(); conv.buffer = buf;
-  const wetG = AC.createGain(); wetG.gain.value = 0.2;
-  conv.connect(wetG); wetG.connect(masterGain);
-  return conv;
+// BGM: upbeat groove — kick + hat + bass + marimba melody @ 110 BPM
+// A pentatonic minor: A C D E G
+
+function bgmKick(t) {
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(130, t);
+  o.frequency.exponentialRampToValueAtTime(38, t + 0.3);
+  o.connect(g); g.connect(masterGain);
+  g.gain.setValueAtTime(0.52, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+  o.start(t); o.stop(t + 0.38);
 }
 
-// Detuned sine pad chord (very soft, long attack/release)
-function bgmPad(freqs, t, dur, vol) {
-  freqs.forEach(freq => {
-    [1, 1.005].forEach(dt => {
-      const osc = AC.createOscillator(), g = AC.createGain();
-      osc.type = 'sine'; osc.frequency.value = freq * dt;
-      osc.connect(g); g.connect(masterGain);
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(vol, t + 0.55);
-      g.gain.setValueAtTime(vol, t + dur - 0.8);
-      g.gain.linearRampToValueAtTime(0, t + dur);
-      osc.start(t); osc.stop(t + dur + 0.1);
-    });
-  });
+function bgmHat(t, open) {
+  const dur = open ? 0.13 : 0.042;
+  const buf = AC.createBuffer(1, Math.round(AC.sampleRate * dur), AC.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const src = AC.createBufferSource(); src.buffer = buf;
+  const hp = AC.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 6500;
+  const g = AC.createGain(); g.gain.value = open ? 0.11 : 0.065;
+  src.connect(hp); hp.connect(g); g.connect(masterGain);
+  src.start(t); src.stop(t + dur + 0.01);
 }
 
-// Plucked bass note (low sine, fast attack, exponential decay)
 function bgmBass(freq, t, dur) {
-  const osc = AC.createOscillator(), g = AC.createGain();
-  osc.type = 'sine'; osc.frequency.value = freq;
-  osc.connect(g); g.connect(masterGain);
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = 'sine'; o.frequency.value = freq;
+  o.connect(g); g.connect(masterGain);
   g.gain.setValueAtTime(0, t);
-  g.gain.linearRampToValueAtTime(0.26, t + 0.04);
-  g.gain.exponentialRampToValueAtTime(0.003, t + dur);
-  osc.start(t); osc.stop(t + dur + 0.05);
+  g.gain.linearRampToValueAtTime(0.28, t + 0.025);
+  g.gain.exponentialRampToValueAtTime(0.002, t + dur);
+  o.start(t); o.stop(t + dur + 0.01);
 }
 
-// Melodic note with reverb send
-function bgmMel(freq, t, dur, vol) {
-  const osc = AC.createOscillator(), g = AC.createGain();
-  osc.type = 'triangle'; osc.frequency.value = freq;
-  osc.connect(g); g.connect(masterGain);
-  if (reverbNode) osc.connect(reverbNode);
-  const peak = t + 0.022, dec = t + dur * 0.6, end = t + dur;
-  g.gain.setValueAtTime(0, t);
-  g.gain.linearRampToValueAtTime(vol, peak);
-  g.gain.exponentialRampToValueAtTime(Math.max(0.001, vol * 0.12), dec);
-  g.gain.linearRampToValueAtTime(0, end);
-  osc.start(t); osc.stop(end + 0.05);
+// Marimba: triangle fundamental + decaying 4th harmonic
+function bgmMarimba(freq, t, dur, vol) {
+  [[1, 0.85], [4.07, 0.18]].forEach(([mult, mix]) => {
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = mult === 1 ? 'triangle' : 'sine';
+    o.frequency.value = freq * mult;
+    o.connect(g); g.connect(masterGain);
+    const v = vol * mix;
+    const d = mult === 1 ? dur : dur * 0.28;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(v, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.001, t + d);
+    o.start(t); o.stop(t + d + 0.01);
+  });
 }
 
 function scheduleBGM() {
   if (!AC) return;
   clearTimeout(bgmTimer);
-  if (!reverbNode) reverbNode = makeReverb();
 
-  const B  = 60 / 82;   // beat duration @ 82 BPM ≈ 0.732s
-  const BA = B * 4;     // bar = 2.927s
-  const t0 = AC.currentTime + 0.12;
+  const B  = 60 / 110;   // ~0.545s per beat @ 110 BPM
+  const BA = B * 4;
+  const t0 = AC.currentTime + 0.1;
+  const BARS = 8;
 
-  // Pads: 2-bar sustained chords (Am → C → Am → G)
-  bgmPad([220, 329.6, 440],   t0,        BA*2, 0.052); // Am: A3 E4 A4
-  bgmPad([261.6, 392, 523.3], t0+BA*2,   BA*2, 0.048); // C:  C4 G4 C5
-  bgmPad([220, 329.6, 440],   t0+BA*4,   BA*2, 0.052); // Am
-  bgmPad([196, 293.7, 392],   t0+BA*6,   BA*2, 0.048); // G:  G3 D4 G4
+  for (let bar = 0; bar < BARS; bar++) {
+    const bt = t0 + bar * BA;
+    // Kick: beats 0, 2
+    bgmKick(bt); bgmKick(bt + B * 2);
+    // Hi-hat: every half-beat, open on beat 3.5
+    for (let h = 0; h < 8; h++) bgmHat(bt + h * B * 0.5, h === 7);
+    // Bass: beats 0 and 2 (walking pattern over 4 chords cycling every 2 bars)
+    const bassFreqs = [[110,98],[110,130.8],[146.8,110],[130.8,98]];
+    const bf = bassFreqs[Math.floor(bar / 2) % 4];
+    bgmBass(bf[0], bt, B * 1.6);
+    bgmBass(bf[1], bt + B * 2, B * 1.6);
+  }
 
-  // Bass: beat 1 and beat 3 of each bar
-  const bassPattern = [
-    [0,110],[2,82.4],[4,146.8],[6,110],
-    [8,110],[10,98],[12,130.8],[14,98],
-    [16,110],[18,82.4],[20,146.8],[22,110],
-    [24,110],[26,98],[28,130.8],[30,98],
+  // Marimba melody: catchy 8-bar phrase, A pentatonic minor
+  // A4=440 C5=523.3 D5=587.3 E5=659.3 G5=784 A5=880
+  const M = [
+    // phrase A (bars 1-4)
+    [0,   440,  B*1.0, 0.19],
+    [1,   523.3,B*0.5, 0.16],
+    [1.5, 587.3,B*0.5, 0.16],
+    [2,   659.3,B*1.0, 0.18],
+    [3,   587.3,B*0.5, 0.15],
+    [3.5, 523.3,B*0.5, 0.15],
+    [4,   440,  B*1.5, 0.17],
+    [5.5, 392,  B*0.5, 0.14],
+    [6,   440,  B*0.5, 0.15],
+    [6.5, 523.3,B*0.5, 0.15],
+    [7,   587.3,B*0.5, 0.16],
+    [7.5, 659.3,B*0.5, 0.16],
+    [8,   784,  B*0.5, 0.14],
+    [8.5, 659.3,B*0.5, 0.15],
+    [9,   587.3,B*1.0, 0.17],
+    [10,  523.3,B*0.5, 0.15],
+    [10.5,587.3,B*0.5, 0.15],
+    [11,  659.3,B*1.0, 0.16],
+    [12,  587.3,B*0.5, 0.15],
+    [12.5,523.3,B*0.5, 0.15],
+    [13,  440,  B*3.0, 0.18],
+    // phrase B (bars 5-8, higher energy)
+    [16,  659.3,B*1.0, 0.18],
+    [17,  784,  B*0.5, 0.16],
+    [17.5,880,  B*0.5, 0.14],
+    [18,  784,  B*1.0, 0.16],
+    [19,  659.3,B*1.0, 0.17],
+    [20,  587.3,B*0.5, 0.15],
+    [20.5,659.3,B*0.5, 0.15],
+    [21,  784,  B*1.0, 0.16],
+    [22,  659.3,B*0.5, 0.15],
+    [22.5,587.3,B*0.5, 0.15],
+    [23,  523.3,B*1.0, 0.16],
+    [24,  440,  B*0.5, 0.15],
+    [24.5,523.3,B*0.5, 0.15],
+    [25,  587.3,B*0.5, 0.15],
+    [25.5,659.3,B*0.5, 0.16],
+    [26,  784,  B*1.0, 0.17],
+    [27,  659.3,B*1.0, 0.16],
+    [28,  587.3,B*0.5, 0.15],
+    [28.5,523.3,B*0.5, 0.15],
+    [29,  440,  B*1.0, 0.16],
+    [30,  392,  B*0.5, 0.14],
+    [31,  440,  B*1.0, 0.18],
   ];
-  bassPattern.forEach(([beat,freq]) => bgmBass(freq, t0+beat*B, B*1.8));
+  M.forEach(([beat, freq, dur, vol]) => bgmMarimba(freq, t0 + beat * B, dur, vol));
 
-  // Melody: sparse flowing pentatonic
-  // A minor pent: A(220/440/880) C(261.6/523.3) D(293.7/587.3) E(329.6/659.3) G(196/392/784)
-  const mel = [
-    // bars 1-2
-    [1,   440,  B*1.1, 0.13],
-    [2.5, 523.3,B*0.7, 0.11],
-    [3.5, 659.3,B*1.4, 0.12],
-    [5,   587.3,B*0.8, 0.11],
-    [6.5, 523.3,B*0.7, 0.10],
-    [7.5, 440,  B*1.6, 0.13],
-    // bars 3-4
-    [9,   392,  B*0.8, 0.11],
-    [10,  440,  B*0.6, 0.12],
-    [11,  523.3,B*1.5, 0.13],
-    [13.5,659.3,B*0.7, 0.11],
-    [14.5,587.3,B*0.8, 0.11],
-    [15.5,440,  B*1.6, 0.13],
-    // bars 5-6 (higher variation)
-    [17,  523.3,B*0.8, 0.12],
-    [18,  659.3,B*1.0, 0.13],
-    [20,  784,  B*0.6, 0.09], // G5 accent
-    [20.8,659.3,B*0.7, 0.11],
-    [22,  587.3,B*0.8, 0.11],
-    [23.5,523.3,B*1.6, 0.13],
-    // bars 7-8 (descending resolve)
-    [25,  440,  B*0.8, 0.12],
-    [26,  392,  B*0.6, 0.11],
-    [27,  329.6,B*1.8, 0.13], // E4
-    [29,  293.7,B*0.8, 0.11], // D4
-    [30,  220,  B*0.7, 0.12], // A3
-    [31,  329.6,B*2.2, 0.13], // E4 — held into loop
-  ];
-  mel.forEach(([beat,freq,dur,vol]) => bgmMel(freq, t0+beat*B, dur, vol));
-
-  bgmTimer = setTimeout(scheduleBGM, (32*B - 0.18)*1000); // 8 bars
+  bgmTimer = setTimeout(scheduleBGM, (BARS * BA - 0.15) * 1000);
 }
 
 function toggleMute() {
@@ -727,6 +763,7 @@ const G = {
   items:[], tray:[], pendingPicks:0,
   goose:null, gooseOn:false,
   running:false, history:[],
+  revives: 2,
 };
 
 function clearLevel() {
@@ -816,7 +853,30 @@ function pickItem(item) {
 
 function pickGoose() {
   if (!G.gooseOn || !G.running) return;
-  doWin();
+  G.running = false; // block further clicks during struggle
+  sfxGoose();
+  toast('🪿 抓住了！！！');
+  gooseSpeak('win');
+
+  const g = G.goose, base = g.position.clone();
+  const t0 = performance.now();
+  function struggle(now) {
+    const dt = (now - t0) / 1000;
+    if (dt < 2.0) {
+      const intensity = 1 - dt / 2.0;
+      g.position.x = base.x + Math.sin(dt * 19) * 0.28 * intensity;
+      g.position.z = base.z + Math.cos(dt * 14) * 0.22 * intensity;
+      g.position.y = base.y + Math.abs(Math.sin(dt * 23)) * 0.32 * intensity;
+      g.rotation.z = Math.sin(dt * 16) * 0.55 * intensity;
+      g.rotation.x = Math.sin(dt * 9) * 0.35 * intensity;
+      g.scale.setScalar(0.7 + Math.abs(Math.sin(dt * 13)) * 0.12);
+      requestAnimationFrame(struggle);
+    } else {
+      g.position.copy(base); g.rotation.set(0, 0, 0); g.scale.setScalar(0.7);
+      doWin();
+    }
+  }
+  requestAnimationFrame(struggle);
 }
 
 function consumeMatches() {
@@ -852,7 +912,7 @@ function doWin() {
   G.score += 100 + G.level*30; syncScore();
   sfxWin();
   document.getElementById('win-msg').textContent =
-    `得分 ${G.score} 分！${G.level < LEVELS.length-1 ? '继续下一关吧～' : '你是抓鹅冠军！'}`;
+    `得分 ${G.score} 分！${G.level < LEVELS.length-1 ? '继续下一关吧～' : '🏆 你是抓鹅冠军！'}`;
   showScr('scr-win');
 }
 
@@ -861,7 +921,26 @@ function doLose() {
   G.running = false;
   sfxLose();
   gooseSpeak('lose');
+  const btn = document.getElementById('btn-revive');
+  if (btn) {
+    btn.textContent = `💊 复活 (剩余×${G.revives})`;
+    btn.style.display = G.revives > 0 ? '' : 'none';
+  }
   showScr('scr-lose');
+}
+
+function doRevive() {
+  if (G.revives <= 0) return;
+  G.revives--;
+  document.getElementById('revive-cnt').textContent = `💊×${G.revives}`;
+  // Clear the tray — give the player a fresh start
+  G.tray = [];
+  G.history = [];
+  G.pendingPicks = 0;
+  G.running = true;
+  rebuildTrayDOM(); updateTrayUI(); updateRem();
+  hideScrAll();
+  toast('💊 复活！暂存栏已清空');
 }
 
 // ── Shake ─────────────────────────────────────────────────────────
@@ -869,14 +948,33 @@ function doShake() {
   if (!G.running) return;
   const active = G.items.filter(it => it.inPile && !it.animating);
   if (active.length < 2) return;
-  const fresh = genPositions(active.length);
-  active.forEach((it, i) => {
-    tweenPos(it.group, fresh[i], 0.45 + Math.random()*0.2);
-    it.group.rotation.y += (Math.random()-0.5)*Math.PI*2;
-  });
   sfxShake();
   gooseSpeak('shake');
   toast('🍳 颠锅！底层翻上来了～');
+
+  const fresh = genPositions(active.length);
+  const t0 = performance.now();
+
+  // Phase 1: every item bounces up randomly (180ms)
+  // Phase 2: tween to fresh positions
+  active.forEach((it, i) => {
+    const sy = it.group.position.y;
+    const jumpH = 0.35 + Math.random() * 0.55;
+    const delay = Math.random() * 70; // stagger start
+
+    function bounceTick(now) {
+      const dt = Math.max(0, now - t0 - delay);
+      if (dt < 180) {
+        it.group.position.y = sy + Math.sin((dt / 180) * Math.PI) * jumpH;
+        requestAnimationFrame(bounceTick);
+      } else {
+        it.group.position.y = sy;
+        tweenPos(it.group, fresh[i], 0.38 + Math.random() * 0.18);
+        it.group.rotation.y += (Math.random() - 0.5) * Math.PI * 2;
+      }
+    }
+    requestAnimationFrame(bounceTick);
+  });
 }
 
 // ── Undo ──────────────────────────────────────────────────────────
@@ -997,8 +1095,11 @@ function initInput() {
   document.getElementById('btn-mute').addEventListener('click',  toggleMute);
 
   document.getElementById('btn-start').addEventListener('click', () => {
-    ensureAudio(); G.score = 0; G.level = 0; syncScore(); hideScrAll(); startLevel(0);
+    ensureAudio(); G.score = 0; G.level = 0; G.revives = 2;
+    document.getElementById('revive-cnt').textContent = '💊×2';
+    syncScore(); hideScrAll(); startLevel(0);
   });
+  document.getElementById('btn-revive').addEventListener('click', doRevive);
   document.getElementById('btn-next').addEventListener('click', () => {
     G.level = Math.min(G.level+1, LEVELS.length-1); hideScrAll(); startLevel(G.level);
   });
