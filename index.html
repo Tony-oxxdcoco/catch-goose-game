@@ -196,7 +196,7 @@ const TYPES = [
   {id:'potato',   label:'土豆',   e:'🥔',  color:0x8b7355},
 ];
 
-const TRAY_CAP = 7;
+const TRAY_CAP_DEFAULT = 7; // fallback only
 
 // ── Wok physics world ─────────────────────────────────────────────
 const WOK_R    = 2.75;   // inner radius at rim
@@ -210,17 +210,18 @@ const WOK_FRIC = 0.70;   // velocity multiplier on bowl contact
 
 let spawnQ = []; // {item, t} — items waiting to fall in
 
+// cap = tray slots; fewer slots = harder. Difficulty via item count + cap reduction.
 const LEVELS = [
-  {t:4,  g:2, label:'第1关'},   // 24 items
-  {t:5,  g:2, label:'第2关'},   // 30
-  {t:6,  g:2, label:'第3关'},   // 36
-  {t:7,  g:3, label:'第4关'},   // 63
-  {t:8,  g:3, label:'第5关'},   // 72
-  {t:9,  g:3, label:'第6关'},   // 81
-  {t:10, g:3, label:'第7关'},   // 90
-  {t:11, g:3, label:'第8关'},   // 99
-  {t:12, g:3, label:'第9关'},   // 108
-  {t:12, g:4, label:'第10关'},  // 144 — 大师关
+  {t:4,  g:2, cap:7, label:'第1关'},   //  24 items — 新手入门
+  {t:5,  g:3, cap:7, label:'第2关'},   //  45 items
+  {t:6,  g:3, cap:7, label:'第3关'},   //  54 items
+  {t:7,  g:4, cap:6, label:'第4关'},   //  84 items — 进阶：托盘缩小
+  {t:8,  g:4, cap:6, label:'第5关'},   //  96 items
+  {t:9,  g:4, cap:6, label:'第6关'},   // 108 items
+  {t:10, g:5, cap:5, label:'第7关'},   // 150 items — 高手：托盘更小
+  {t:11, g:5, cap:5, label:'第8关'},   // 165 items
+  {t:12, g:5, cap:5, label:'第9关'},   // 180 items
+  {t:12, g:5, cap:4, label:'第10关'},  // 180 items — 大师关：仅4格托盘
 ];
 
 const GOOSE_SERVER = 'http://localhost:3001/goose';
@@ -235,6 +236,8 @@ const FALLBACK = {
 
 // ── Three.js ──────────────────────────────────────────────────────
 let scene, camera, renderer, raycaster, hoveredItem = null;
+let _camLook = new THREE.Vector3(0, 0.4, 0);
+let _camTween = null; // {fromPos,fromLook,toPos,toLook,dur,t0}
 
 function initThree() {
   const cv = document.getElementById('c');
@@ -804,17 +807,17 @@ function playPickupAnim(item, onDone) {
   const g = item.group, sy = g.position.y, t0 = performance.now();
   function tick(now) {
     const dt = (now - t0) / 1000;
-    if (dt < 0.2) {
-      const p = dt / 0.2, e = 1 - Math.pow(1-p, 2);
-      g.position.y = sy + e * 0.6;
-      g.scale.setScalar(1 + Math.sin(p*Math.PI)*0.38);
-      g.rotation.y += 0.1; g.rotation.z = Math.sin(p*Math.PI)*0.2;
+    if (dt < 0.09) {                       // phase 1: quick pop up (90ms)
+      const p = dt / 0.09, e = 1 - Math.pow(1-p, 2);
+      g.position.y = sy + e * 0.5;
+      g.scale.setScalar(1 + Math.sin(p*Math.PI)*0.28);
+      g.rotation.y += 0.12;
       requestAnimationFrame(tick);
-    } else if (dt < 0.4) {
-      const p = (dt - 0.2) / 0.2;
-      g.position.y = sy + 0.6 + p*p*0.9;
-      g.scale.setScalar(Math.max(0.02, 1.35 - p*1.38));
-      g.rotation.y += 0.14;
+    } else if (dt < 0.20) {               // phase 2: shrink into tray (110ms)
+      const p = (dt - 0.09) / 0.11;
+      g.position.y = sy + 0.5 + p*p*0.9;
+      g.scale.setScalar(Math.max(0.02, 1.25 - p*1.26));
+      g.rotation.y += 0.15;
       requestAnimationFrame(tick);
     } else { onDone(); }
   }
@@ -1064,7 +1067,8 @@ const G = {
   goose:null, gooseOn:false,
   running:false, history:[],
   revives: 2,
-  bodies: [],  // physics bodies: {item, pos, vel, angVel}
+  bodies: [],
+  cap: 7,  // tray capacity, set per level
 };
 
 function clearLevel() {
@@ -1079,7 +1083,12 @@ function clearLevel() {
 
 function startLevel(idx) {
   clearLevel();
+  // Reset camera to top-down view immediately (no tween, screen transition covers it)
+  _camTween = null;
+  camera.position.set(0, 13, 2.0);
+  _camLook.set(0, 0.4, 0);
   const lv = LEVELS[Math.min(idx, LEVELS.length-1)];
+  G.cap = lv.cap ?? TRAY_CAP_DEFAULT;
   const pool = [];
   for (let ti = 0; ti < lv.t; ti++)
     for (let g = 0; g < lv.g; g++)
@@ -1111,7 +1120,7 @@ function startLevel(idx) {
 // ── Core logic ────────────────────────────────────────────────────
 function pickItem(item) {
   if (!G.running || !item.inPile || item.animating) return;
-  if (G.tray.length + G.pendingPicks >= TRAY_CAP) { flashTrayDanger(); return; }
+  if (G.tray.length + G.pendingPicks >= G.cap) { flashTrayDanger(); return; }
 
   const bodyIdx = G.bodies.findIndex(b => b.item === item);
   const origBody = bodyIdx !== -1 ? {
@@ -1150,7 +1159,7 @@ function pickItem(item) {
     }
 
     checkWin(); updateTrayUI(); updateRem();
-    if (G.running && G.tray.length >= TRAY_CAP) setTimeout(doLose, 450);
+    if (G.running && G.tray.length >= G.cap) setTimeout(doLose, 450);
   });
 }
 
@@ -1202,12 +1211,23 @@ function checkWin() {
   if (G.bodies.length === 0 && spawnQ.length === 0 && G.pendingPicks === 0 && G.tray.length === 0) {
     G.gooseOn = true;
     G.goose.visible = true;
-    // Rise from wok bottom to center for player to click
-    tweenPos(G.goose, {x:0, y:WOK_BOT + 1.8, z:0}, 0.75);
+    tweenPos(G.goose, {x:0, y:WOK_BOT + 1.8, z:0.4}, 0.75);
+    // Switch to front-facing view so player can see and click the goose
+    tweenCamera([0, 2.8, 9.0], [0, 1.0, 0], 0.9);
     toast('🪿 快去抓大鹅！');
     sfxGoose();
     gooseSpeak('win');
   }
+}
+
+function tweenCamera(toPos, toLook, dur) {
+  _camTween = {
+    fromPos: camera.position.clone(),
+    fromLook: _camLook.clone(),
+    toPos: new THREE.Vector3(...toPos),
+    toLook: new THREE.Vector3(...toLook),
+    dur, t0: performance.now(),
+  };
 }
 
 function doWin() {
@@ -1312,13 +1332,13 @@ function doUndo() {
 // ── Tray DOM ──────────────────────────────────────────────────────
 function rebuildTrayDOM() {
   const el = document.getElementById('tray'); el.innerHTML = '';
-  for (let i = 0; i < TRAY_CAP; i++) {
+  for (let i = 0; i < G.cap; i++) {
     const s = document.createElement('div'); s.className = 'slot'; s.id = `s${i}`; el.appendChild(s);
   }
 }
 
 function updateTrayUI() {
-  for (let i = 0; i < TRAY_CAP; i++) {
+  for (let i = 0; i < G.cap; i++) {
     const s = document.getElementById(`s${i}`); if (!s) continue;
     const item = G.tray[i];
     if (item) {
@@ -1422,20 +1442,28 @@ function initInput() {
   document.getElementById('btn-retry2').addEventListener('click', () => { hideScrAll(); startLevel(G.level); });
 
   // Device shake → 颠锅
-  let lx=null, ly=null, lz=null, lastShake=0;
+  // Use pure acceleration (no gravity) when available; fall back to total accel.
+  // Track a rolling peak and fire on sudden spike with 600ms cooldown.
+  let lx=null, ly=null, lz=null, lastShake=0, shakePeak=0;
   if (window.DeviceMotionEvent) {
     window.addEventListener('devicemotion', e => {
-      const a = e.accelerationIncludingGravity; if (!a) return;
+      const raw = e.acceleration;
+      const a = (raw && raw.x !== null) ? raw : e.accelerationIncludingGravity;
+      if (!a) return;
       if (lx !== null) {
-        const d = Math.abs(a.x-lx)+Math.abs(a.y-ly)+Math.abs(a.z-lz);
+        const d = Math.abs(a.x-lx) + Math.abs(a.y-ly) + Math.abs(a.z-lz);
+        shakePeak = Math.max(shakePeak * 0.85, d); // rolling peak decay
         const now = Date.now();
-        if (d > 22 && now-lastShake > 900) { lastShake = now; doShake(); }
+        // Fire on spike: current delta exceeds 60% of recent peak AND threshold met
+        if (d > 10 && d >= shakePeak * 0.7 && now - lastShake > 600) {
+          lastShake = now; shakePeak = 0; doShake();
+        }
       }
       lx=a.x; ly=a.y; lz=a.z;
     });
     document.getElementById('btn-shake').addEventListener('click', () => {
       if (typeof DeviceMotionEvent.requestPermission === 'function')
-        DeviceMotionEvent.requestPermission().catch(()=>{});
+        DeviceMotionEvent.requestPermission().then(() => {}).catch(()=>{});
     });
   }
 }
@@ -1452,6 +1480,15 @@ function loop(now) {
   const dt = _lastNow > 0 ? (now - _lastNow) / 1000 : 0.016;
   _lastNow = now;
   stepTweens(now);
+  // Camera tween (top-down ↔ front goose view)
+  if (_camTween) {
+    const p = Math.min((now - _camTween.t0) / (_camTween.dur * 1000), 1);
+    const e = 1 - Math.pow(1 - p, 3); // ease out cubic
+    camera.position.lerpVectors(_camTween.fromPos, _camTween.toPos, e);
+    _camLook.lerpVectors(_camTween.fromLook, _camTween.toLook, e);
+    if (p >= 1) _camTween = null;
+  }
+  camera.lookAt(_camLook);
   if (G.running) {
     processSpawnQueue(now);
     physicsStep(dt);
