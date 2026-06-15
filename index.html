@@ -23,12 +23,12 @@ canvas{display:block}
 #rem-wrap{color:rgba(255,255,255,.7);font-size:13px;white-space:nowrap}
 #score-text{color:#FFD700;font-size:16px;font-weight:700;white-space:nowrap}
 #revive-cnt{color:#ff7eb3;font-size:14px;font-weight:700;white-space:nowrap}
-#btn-mute{
+#btn-home,#btn-mute{
   background:none;border:none;cursor:pointer;
   font-size:20px;padding:2px 6px;border-radius:8px;
   color:#fff;opacity:.85;transition:opacity .2s;flex-shrink:0
 }
-#btn-mute:active{opacity:.5}
+#btn-home:active,#btn-mute:active{opacity:.5}
 
 #goose-bubble{
   position:fixed;top:58px;left:50%;
@@ -156,6 +156,7 @@ canvas{display:block}
 <body>
 
 <div id="hud">
+  <button id="btn-home">🏠</button>
   <span id="level-text">第1关</span>
   <span id="rem-wrap">剩 <b id="rem-n">0</b> 件</span>
   <span id="score-text">🏆 0</span>
@@ -1683,6 +1684,21 @@ function initInput() {
   document.getElementById('btn-shake').addEventListener('click', () => { ensureAudio(); doShake(); });
   document.getElementById('btn-undo').addEventListener('click',  doUndo);
   document.getElementById('btn-mute').addEventListener('click',  toggleMute);
+
+  // Home button: tap once for warning, tap again within 2s to confirm exit
+  let _homeT = 0;
+  document.getElementById('btn-home').addEventListener('click', () => {
+    const now = Date.now();
+    if (now - _homeT < 2000) {
+      clearLevel();
+      _lvPage = 0; renderLevelGrid();
+      showScr('scr-levels');
+      _homeT = 0;
+    } else {
+      _homeT = now;
+      toast('再按一次返回选关界面');
+    }
+  });
 
   document.getElementById('btn-start').addEventListener('click', () => {
     ensureAudio(); G.score = 0; G.level = 0; G.revives = 2;
