@@ -92,6 +92,31 @@ canvas{display:block}
 #btn-shake{background:linear-gradient(135deg,#ff7043,#e64a19)}
 #btn-undo{background:linear-gradient(135deg,#42a5f5,#1565c0)}
 
+/* Level select */
+#scr-levels{background:radial-gradient(ellipse at 50% 40%,#1a2a4a,#0d1520)}
+.lv-grid{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:8px;
+  max-width:360px;width:100%;margin:16px 0
+}
+.lv-btn{
+  aspect-ratio:1;border-radius:14px;border:2px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.08);color:#fff;font-size:13px;font-weight:700;
+  cursor:pointer;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:3px;-webkit-tap-highlight-color:transparent;
+  transition:transform .1s,background .15s
+}
+.lv-btn:active{transform:scale(.88)}
+.lv-btn.unlocked{background:rgba(255,112,67,.22);border-color:#ff7043cc}
+.lv-btn.last{background:linear-gradient(135deg,rgba(255,215,0,.25),rgba(255,140,0,.22));border-color:#FFD700cc}
+.lv-btn .lv-num{font-size:18px;font-weight:800}
+.lv-cap-tag{font-size:9px;opacity:.65;margin-top:1px}
+.lv-nav{display:flex;align-items:center;gap:16px;margin-bottom:8px}
+.lv-nav button{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);
+  color:#fff;font-size:18px;width:38px;height:38px;border-radius:50%;cursor:pointer}
+
+/* Fireworks canvas */
+#fw-canvas{position:fixed;inset:0;pointer-events:none;z-index:45;display:none}
+
 .screen{
   position:fixed;inset:0;display:none;
   flex-direction:column;align-items:center;justify-content:center;
@@ -157,7 +182,23 @@ canvas{display:block}
     🍳 摇晃手机或点颠锅翻底层
   </p>
   <button class="btn btn-primary" id="btn-start">开始游戏</button>
+  <button class="btn btn-secondary" id="btn-open-levels">🗺 选择关卡</button>
 </div>
+
+<!-- Level select screen -->
+<div class="screen" id="scr-levels">
+  <div class="scr-title" style="font-size:28px;margin-bottom:4px">选择关卡</div>
+  <div class="lv-nav">
+    <button id="btn-lv-prev">◀</button>
+    <span id="lv-page" style="color:rgba(255,255,255,.6);font-size:14px"></span>
+    <button id="btn-lv-next">▶</button>
+  </div>
+  <div class="lv-grid" id="lv-grid"></div>
+  <button class="btn btn-secondary" id="btn-lv-close" style="margin-top:8px">← 返回</button>
+</div>
+
+<!-- Fireworks canvas (2D overlay) -->
+<canvas id="fw-canvas"></canvas>
 
 <div class="screen" id="scr-win">
   <div class="scr-emoji">🎉</div>
@@ -182,18 +223,23 @@ canvas{display:block}
 'use strict';
 
 const TYPES = [
-  {id:'carrot',   label:'胡萝卜', e:'🥕',  color:0xff8c00},
-  {id:'broccoli', label:'西蓝花', e:'🥦',  color:0x2e7d32},
-  {id:'tomato',   label:'番茄',   e:'🍅',  color:0xc62828},
-  {id:'corn',     label:'玉米',   e:'🌽',  color:0xffcc00},
-  {id:'apple',    label:'苹果',   e:'🍎',  color:0xdd1111},
-  {id:'lemon',    label:'柠檬',   e:'🍋',  color:0xfdd835},
-  {id:'egg',      label:'鸡蛋',   e:'🥚',  color:0xfff0c0},
-  {id:'mushroom', label:'蘑菇',   e:'🍄',  color:0x8d4513},
-  {id:'onion',    label:'洋葱',   e:'🧅',  color:0x9c27b0},
-  {id:'garlic',   label:'大蒜',   e:'🧄',  color:0xddddaa},
-  {id:'pepper',   label:'辣椒',   e:'🌶',  color:0xd32f2f},
-  {id:'potato',   label:'土豆',   e:'🥔',  color:0x8b7355},
+  {id:'carrot',    label:'胡萝卜', e:'🥕',  color:0xff8c00},
+  {id:'broccoli',  label:'西蓝花', e:'🥦',  color:0x2e7d32},
+  {id:'tomato',    label:'番茄',   e:'🍅',  color:0xc62828},
+  {id:'corn',      label:'玉米',   e:'🌽',  color:0xffcc00},
+  {id:'apple',     label:'苹果',   e:'🍎',  color:0xdd1111},
+  {id:'lemon',     label:'柠檬',   e:'🍋',  color:0xfdd835},
+  {id:'egg',       label:'鸡蛋',   e:'🥚',  color:0xfff0c0},
+  {id:'mushroom',  label:'蘑菇',   e:'🍄',  color:0x8d4513},
+  {id:'onion',     label:'洋葱',   e:'🧅',  color:0x9c27b0},
+  {id:'garlic',    label:'大蒜',   e:'🧄',  color:0xddddaa},
+  {id:'pepper',    label:'辣椒',   e:'🌶',  color:0xd32f2f},
+  {id:'potato',    label:'土豆',   e:'🥔',  color:0x8b7355},
+  {id:'eggplant',  label:'茄子',   e:'🍆',  color:0x7b1fa2},
+  {id:'cucumber',  label:'黄瓜',   e:'🥒',  color:0x388e3c},
+  {id:'bellpepper',label:'灯笼椒', e:'🫑',  color:0xf9a825},
+  {id:'bokchoy',   label:'青菜',   e:'🥬',  color:0x1b8a3c},
+  {id:'tofu',      label:'豆腐',   e:'🤍',  color:0xf5f0e8},
 ];
 
 const TRAY_CAP_DEFAULT = 7; // fallback only
@@ -222,6 +268,11 @@ const LEVELS = [
   {t:11, g:5, cap:5, label:'第8关'},   // 165 items
   {t:12, g:5, cap:5, label:'第9关'},   // 180 items
   {t:12, g:5, cap:4, label:'第10关'},  // 180 items — 大师关：仅4格托盘
+  {t:13, g:4, cap:4, label:'第11关'},  // 156 items, 13种 — 进阶大师
+  {t:14, g:4, cap:4, label:'第12关'},  // 168 items, 14种
+  {t:15, g:4, cap:4, label:'第13关'},  // 180 items, 全17种
+  {t:16, g:4, cap:4, label:'第14关'},  // 192 items, 16种
+  {t:17, g:4, cap:4, label:'第15关'},  // 204 items, 全17种 — 终极挑战 🎆
 ];
 
 const GOOSE_SERVER = 'http://localhost:3001/goose';
@@ -354,6 +405,7 @@ function initThree() {
 
   // ── Main game wok (iron pot) ──────────────────────────────────────
   buildWok();
+  spawnPetGoose();
 
   raycaster = new THREE.Raycaster();
   onResize();
@@ -516,10 +568,70 @@ function buildPotato() {
   return g;
 }
 
+function buildEggplant() {
+  const g = new THREE.Group();
+  const body = sp(0.14, 0x7B1FA2); body.scale.set(0.82, 2.0, 0.82); body.position.y = 0.04; g.add(body);
+  const tip = co(0.11, 0.14, 0x6A1880, 8); tip.rotation.x = Math.PI; tip.position.y = -0.26; g.add(tip);
+  const stem = cy(0.035, 0.028, 0.14, 0x2A7A28); stem.position.y = 0.35; g.add(stem);
+  const leaf = bx(0.12, 0.06, 0.02, 0x1A8A3C); leaf.position.set(0.06, 0.38, 0); leaf.rotation.z = -0.4; g.add(leaf);
+  return g;
+}
+function buildCucumber() {
+  const g = new THREE.Group();
+  const body = cy(0.095, 0.085, 0.52, 0x388E3C, 10); g.add(body);
+  // Ridges
+  for (let i = 0; i < 6; i++) {
+    const a = (i/6)*Math.PI*2;
+    const r = bx(0.03, 0.5, 0.03, 0x2E7D32);
+    r.position.set(Math.cos(a)*0.1, 0, Math.sin(a)*0.1); r.rotation.y = a; g.add(r);
+  }
+  const tip = co(0.05, 0.1, 0x4CAF50, 8); tip.rotation.x = Math.PI; tip.position.y = -0.31; g.add(tip);
+  const stem = cy(0.02, 0.015, 0.07, 0x2A7A28); stem.position.y = 0.3; g.add(stem);
+  return g;
+}
+function buildBellPepper() {
+  const g = new THREE.Group();
+  // Three lobes
+  for (let i = 0; i < 3; i++) {
+    const a = (i/3)*Math.PI*2;
+    const lobe = sp(0.14, 0xF9A825, 10, 8);
+    lobe.scale.set(0.75, 0.9, 0.75);
+    lobe.position.set(Math.cos(a)*0.08, -0.04, Math.sin(a)*0.08); g.add(lobe);
+  }
+  const top = sp(0.06, 0xE8B820, 6, 5); top.position.y = 0.14; g.add(top);
+  const stem = cy(0.025, 0.02, 0.1, 0x2A7A28); stem.position.y = 0.22; g.add(stem);
+  return g;
+}
+function buildBokChoy() {
+  const g = new THREE.Group();
+  const base = cy(0.1, 0.13, 0.18, 0xF5F0E0, 8); base.position.y = -0.12; g.add(base);
+  for (let i = 0; i < 5; i++) {
+    const a = (i/5)*Math.PI*2;
+    const stalk = cy(0.028, 0.035, 0.28, 0xF0EAD0, 6);
+    stalk.position.set(Math.cos(a)*0.06, 0.04, Math.sin(a)*0.06);
+    stalk.rotation.z = Math.cos(a)*0.35; stalk.rotation.x = Math.sin(a)*0.35; g.add(stalk);
+    const leaf = bx(0.14, 0.2, 0.02, 0x1A9040);
+    leaf.position.set(Math.cos(a)*0.14, 0.22, Math.sin(a)*0.14);
+    leaf.rotation.z = Math.cos(a)*0.55; leaf.rotation.y = a; g.add(leaf);
+  }
+  return g;
+}
+function buildTofu() {
+  const g = new THREE.Group();
+  const body = bx(0.36, 0.28, 0.32, 0xF5F0E8); body.position.y = 0; g.add(body);
+  // Cross-cut lines on top
+  [-0.08, 0.08].forEach(lx => {
+    const cut = bx(0.01, 0.008, 0.32, 0xE0DDD5); cut.position.set(lx, 0.14, 0); g.add(cut);
+  });
+  const cut2 = bx(0.36, 0.008, 0.01, 0xE0DDD5); cut2.position.set(0, 0.14, 0); g.add(cut2);
+  return g;
+}
+
 const BUILDERS = [
   buildCarrot, buildBroccoli, buildTomato, buildCorn,
   buildApple, buildLemon, buildEgg, buildMushroom,
   buildOnion, buildGarlic, buildPepper, buildPotato,
+  buildEggplant, buildCucumber, buildBellPepper, buildBokChoy, buildTofu,
 ];
 
 function buildGooseModel() {
@@ -538,6 +650,111 @@ function buildGooseModel() {
     const foot = bx(0.12, 0.025, 0.14, 0xff8c00); foot.position.set(x, -0.63, 0.1); g.add(foot);
   }
   return g;
+}
+
+// ── Pet goose (interactive mascot on counter) ─────────────────────
+let petGoose = null;
+function spawnPetGoose() {
+  petGoose = buildGooseModel();
+  petGoose.scale.setScalar(0.42);
+  petGoose.position.set(-3.8, -0.62, 0.8);
+  petGoose.rotation.y = Math.PI * 0.6;
+  petGoose._isPetGoose = true;
+  petGoose.traverse(c => { if (c.isMesh) { c._isPetGoose = true; c.castShadow = true; } });
+  scene.add(petGoose);
+}
+
+function petGooseAnim() {
+  if (!petGoose || petGoose._hopping) return;
+  petGoose._hopping = true;
+  sfxGoose();
+  const base = petGoose.position.clone();
+  const baseRY = petGoose.rotation.y;
+  const t0 = performance.now();
+  function hop(now) {
+    const dt = (now - t0) / 1000;
+    if (dt < 0.7) {
+      petGoose.position.y = base.y + Math.abs(Math.sin(dt * Math.PI / 0.7)) * 0.45;
+      petGoose.rotation.z = Math.sin(dt * Math.PI * 4) * 0.35;
+      petGoose.rotation.y = baseRY + Math.sin(dt * Math.PI * 2) * 0.8;
+      petGoose.scale.setScalar(0.42 + Math.abs(Math.sin(dt*Math.PI/0.7))*0.08);
+      requestAnimationFrame(hop);
+    } else {
+      petGoose.position.copy(base);
+      petGoose.rotation.set(0, baseRY, 0);
+      petGoose.scale.setScalar(0.42);
+      petGoose._hopping = false;
+    }
+  }
+  requestAnimationFrame(hop);
+}
+
+// ── Fireworks (2D canvas overlay) ─────────────────────────────────
+function launchFireworks() {
+  const fwc = document.getElementById('fw-canvas');
+  fwc.width = innerWidth; fwc.height = innerHeight;
+  fwc.style.display = 'block';
+  const ctx = fwc.getContext('2d');
+  const COLORS = ['#FF4444','#44FF88','#4488FF','#FFD700','#FF44FF','#44FFFF','#FF8844','#FFFFFF'];
+  const particles = [];
+
+  function burst(x, y) {
+    const color = COLORS[Math.floor(Math.random()*COLORS.length)];
+    for (let i = 0; i < 52; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const spd = 1.5 + Math.random() * 4.5;
+      particles.push({
+        x, y, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd,
+        life: 1, decay: 0.012 + Math.random()*0.018,
+        size: 2 + Math.random()*3, color,
+        trail: [], gravity: 0.07,
+      });
+    }
+  }
+
+  // Schedule 8 bursts
+  const positions = [
+    [0.25,0.25],[0.75,0.25],[0.5,0.18],[0.2,0.5],
+    [0.8,0.45],[0.5,0.35],[0.35,0.15],[0.65,0.55],
+  ];
+  positions.forEach(([rx,ry], i) =>
+    setTimeout(() => burst(innerWidth*rx, innerHeight*ry), i*380));
+
+  let fwT = performance.now();
+  function drawFW(now) {
+    const dt = Math.min((now - fwT)/16.67, 3);
+    fwT = now;
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(0, 0, fwc.width, fwc.height);
+    for (let i = particles.length-1; i >= 0; i--) {
+      const p = particles[i];
+      p.trail.push({x:p.x, y:p.y, life:p.life});
+      if (p.trail.length > 5) p.trail.shift();
+      p.x += p.vx*dt; p.y += p.vy*dt;
+      p.vy += p.gravity*dt;
+      p.vx *= 0.98; p.vy *= 0.98;
+      p.life -= p.decay*dt;
+      if (p.life <= 0) { particles.splice(i,1); continue; }
+      // Trail
+      for (let j = 0; j < p.trail.length; j++) {
+        const tr = p.trail[j];
+        ctx.globalAlpha = (tr.life * j/p.trail.length) * 0.4;
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(tr.x, tr.y, p.size*0.5, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    if (particles.length > 0 || (now - fwT) < 3500) {
+      requestAnimationFrame(drawFW);
+    } else {
+      ctx.clearRect(0,0,fwc.width,fwc.height);
+      fwc.style.display = 'none';
+    }
+  }
+  requestAnimationFrame(drawFW);
 }
 
 // Inverted-hull white outline: slightly enlarged backface mesh on each sub-mesh
@@ -1211,9 +1428,10 @@ function checkWin() {
   if (G.bodies.length === 0 && spawnQ.length === 0 && G.pendingPicks === 0 && G.tray.length === 0) {
     G.gooseOn = true;
     G.goose.visible = true;
-    tweenPos(G.goose, {x:0, y:WOK_BOT + 1.8, z:0.4}, 0.75);
-    // Switch to front-facing view so player can see and click the goose
-    tweenCamera([0, 2.8, 9.0], [0, 1.0, 0], 0.9);
+    // Rise above the wok rim so it's fully visible (not blocked by bowl geometry)
+    tweenPos(G.goose, {x:0, y:WOK_RIM + 0.9, z:0.8}, 0.8);
+    // Front-facing camera aimed at the goose's final position
+    tweenCamera([0, 3.8, 9.0], [0, WOK_RIM + 0.9, 0.4], 0.9);
     toast('🪿 快去抓大鹅！');
     sfxGoose();
     gooseSpeak('win');
@@ -1234,8 +1452,10 @@ function doWin() {
   G.running = false;
   G.score += 100 + G.level*30; syncScore();
   sfxWin();
+  const isLast = G.level >= LEVELS.length - 1;
   document.getElementById('win-msg').textContent =
-    `得分 ${G.score} 分！${G.level < LEVELS.length-1 ? '继续下一关吧～' : '🏆 你是抓鹅冠军！'}`;
+    `得分 ${G.score} 分！${isLast ? '🏆 你是抓鹅传说！' : '继续下一关吧～'}`;
+  if (isLast) setTimeout(launchFireworks, 400);
   showScr('scr-win');
 }
 
@@ -1371,6 +1591,33 @@ function syncScore() { document.getElementById('score-text').textContent = `🏆
 // ── Screens / Toast ───────────────────────────────────────────────
 function showScr(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('on')); document.getElementById(id).classList.add('on'); }
 function hideScrAll() { document.querySelectorAll('.screen').forEach(s => s.classList.remove('on')); }
+
+// ── Level select ──────────────────────────────────────────────────
+let _lvPage = 0;
+const LV_PER_PAGE = 5;
+
+function renderLevelGrid() {
+  const grid = document.getElementById('lv-grid');
+  grid.innerHTML = '';
+  const start = _lvPage * LV_PER_PAGE;
+  const end = Math.min(start + LV_PER_PAGE, LEVELS.length);
+  for (let i = start; i < end; i++) {
+    const lv = LEVELS[i];
+    const btn = document.createElement('button');
+    btn.className = 'lv-btn' + (i === LEVELS.length-1 ? ' last' : ' unlocked');
+    btn.innerHTML = `<span class="lv-num">${i+1}</span><span>${lv.label.replace('第','').replace('关','')+'关'}</span><span class="lv-cap-tag">托盘×${lv.cap}</span>`;
+    btn.addEventListener('click', () => {
+      G.score = 0; G.level = i; G.revives = 2;
+      document.getElementById('revive-cnt').textContent = '💊×2';
+      syncScore(); hideScrAll(); startLevel(i);
+    });
+    grid.appendChild(btn);
+  }
+  const totalPages = Math.ceil(LEVELS.length / LV_PER_PAGE);
+  document.getElementById('lv-page').textContent = `${_lvPage+1} / ${totalPages}`;
+  document.getElementById('btn-lv-prev').disabled = _lvPage === 0;
+  document.getElementById('btn-lv-next').disabled = _lvPage >= totalPages-1;
+}
 let toastTmr;
 function toast(msg) {
   const el = document.getElementById('toast');
@@ -1386,11 +1633,17 @@ function hitTest(cx, cy) {
   const meshes = [];
   G.items.forEach(it => { if (it.inPile && !it.animating) it.group.traverse(c => { if (c.isMesh) meshes.push(c); }); });
   if (G.gooseOn && G.goose && G.goose.visible) G.goose.traverse(c => { if (c.isMesh) meshes.push(c); });
+  if (petGoose) petGoose.traverse(c => { if (c.isMesh) meshes.push(c); });
   if (!meshes.length) return null;
   const hits = raycaster.intersectObjects(meshes);
   if (!hits.length) return null;
   let obj = hits[0].object;
-  while (obj) { if (obj._item) return obj._item; if (obj._isGoose) return 'goose'; obj = obj.parent; }
+  while (obj) {
+    if (obj._item) return obj._item;
+    if (obj._isGoose) return 'goose';
+    if (obj._isPetGoose) return 'petGoose';
+    obj = obj.parent;
+  }
   return null;
 }
 
@@ -1398,7 +1651,9 @@ function handleClick(cx, cy) {
   ensureAudio();
   const hit = hitTest(cx, cy);
   if (!hit) return;
-  if (hit === 'goose') pickGoose(); else pickItem(hit);
+  if (hit === 'goose') pickGoose();
+  else if (hit === 'petGoose') petGooseAnim();
+  else pickItem(hit);
 }
 
 function handleHover(cx, cy) {
@@ -1434,6 +1689,12 @@ function initInput() {
     document.getElementById('revive-cnt').textContent = '💊×2';
     syncScore(); hideScrAll(); startLevel(0);
   });
+  document.getElementById('btn-open-levels').addEventListener('click', () => {
+    ensureAudio(); _lvPage = 0; renderLevelGrid(); showScr('scr-levels');
+  });
+  document.getElementById('btn-lv-prev').addEventListener('click', () => { _lvPage--; renderLevelGrid(); });
+  document.getElementById('btn-lv-next').addEventListener('click', () => { _lvPage++; renderLevelGrid(); });
+  document.getElementById('btn-lv-close').addEventListener('click', () => showScr('scr-start'));
   document.getElementById('btn-revive').addEventListener('click', doRevive);
   document.getElementById('btn-next').addEventListener('click', () => {
     G.level = Math.min(G.level+1, LEVELS.length-1); hideScrAll(); startLevel(G.level);
@@ -1492,10 +1753,15 @@ function loop(now) {
   if (G.running) {
     processSpawnQueue(now);
     physicsStep(dt);
-    // Goose bobs above wok when revealed
+    // Goose bobs above wok rim when revealed
     if (G.gooseOn && G.goose && G.goose.visible && !tweens.some(t => t.obj === G.goose)) {
-      G.goose.position.y = WOK_BOT + 1.8 + Math.sin(now * 0.002) * 0.12;
-      G.goose.rotation.y += 0.007;
+      G.goose.position.y = WOK_RIM + 0.9 + Math.sin(now * 0.002) * 0.13;
+      G.goose.rotation.y += 0.008;
+    }
+    // Pet goose idle waddle
+    if (petGoose && !petGoose._hopping) {
+      petGoose.position.y = -0.62 + Math.sin(now * 0.0015) * 0.025;
+      petGoose.rotation.z = Math.sin(now * 0.002) * 0.06;
     }
   }
   renderer.render(scene, camera);
