@@ -651,9 +651,9 @@ function constrainBody(b) {
     b.angVel.z += (Math.random() - 0.5) * 3.2;
   }
 
-  // Cylindrical rim wall
+  // Cylindrical wall — extends above rim too so items can't escape
   const wallR = WOK_R - ITEM_R;
-  if (r > wallR && r > 0.001 && b.pos.y < WOK_RIM) {
+  if (r > wallR && r > 0.001) {
     const nx = px / r, nz = pz / r;
     const pen = r - wallR;
     b.pos.x -= nx * pen;
@@ -1255,15 +1255,17 @@ function doShake() {
   gooseSpeak('shake');
   toast('🍳 颠锅！底层翻上来了～');
 
-  // Apply upward impulse + lateral spin — physics engine takes over from here
+  // Apply upward impulse + lateral spin — keep items below rim height
+  // Max safe upward velocity to stay inside: sqrt(2*GRAV*(WOK_RIM-WOK_BOT)) ≈ 6.9
+  // Items can be stacked up to WOK_RIM, so cap at ~3.5 to keep visual chaos inside
   for (const b of activeBodies) {
-    const upImpulse = 3.8 + Math.random() * 4.2;
-    b.vel.x += (Math.random() - 0.5) * 3.5;
+    const upImpulse = 2.0 + Math.random() * 1.8; // 2.0–3.8 m/s — tumbles nicely, stays inside
+    b.vel.x += (Math.random() - 0.5) * 2.2;
     b.vel.y += upImpulse;
-    b.vel.z += (Math.random() - 0.5) * 3.5;
-    b.angVel.x += (Math.random() - 0.5) * 14;
-    b.angVel.y += (Math.random() - 0.5) * 14;
-    b.angVel.z += (Math.random() - 0.5) * 14;
+    b.vel.z += (Math.random() - 0.5) * 2.2;
+    b.angVel.x += (Math.random() - 0.5) * 12;
+    b.angVel.y += (Math.random() - 0.5) * 12;
+    b.angVel.z += (Math.random() - 0.5) * 12;
   }
 }
 
