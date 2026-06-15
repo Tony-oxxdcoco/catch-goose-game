@@ -240,31 +240,31 @@ function initThree() {
   const cv = document.getElementById('c');
   renderer = new THREE.WebGLRenderer({canvas:cv, antialias:true});
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setClearColor(0xFFAA6E, 1);   // warm sunset peach
+  renderer.setClearColor(0xCBC4BC, 1);   // cool clay gray
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0xFFAA6E, 14, 26);
+  scene.fog = new THREE.Fog(0xCBC4BC, 18, 32);
 
-  camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
-  camera.position.set(0, 10, 11.5);
-  camera.lookAt(0, 0.3, 0);
+  // Near-vertical top-down: 81° pitch, wok fills ~70% of screen
+  camera = new THREE.PerspectiveCamera(52, 1, 0.1, 100);
+  camera.position.set(0, 13, 2.0);
+  camera.lookAt(0, 0.4, 0);
 
-  // Warm key light + cool fill + soft rim
-  scene.add(new THREE.AmbientLight(0xFFE0B0, 0.72));
-  const sun = new THREE.DirectionalLight(0xFFCC55, 1.05);
-  sun.position.set(5, 10, 6);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
-  sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 36;
-  sun.shadow.camera.left = -10; sun.shadow.camera.right = 10;
-  sun.shadow.camera.top = 10;   sun.shadow.camera.bottom = -10;
-  scene.add(sun);
-  const fill = new THREE.DirectionalLight(0x88AAFF, 0.28);
-  fill.position.set(-5, 3, -2); scene.add(fill);
-  const rim = new THREE.DirectionalLight(0xFF8855, 0.18);
-  rim.position.set(0, -1, -6); scene.add(rim);
+  // Neutral ambient + strong near-vertical top light for crisp top-face highlights
+  scene.add(new THREE.AmbientLight(0xE4E0DA, 0.58));
+  const topLight = new THREE.DirectionalLight(0xFFFBF0, 1.25);
+  topLight.position.set(0.8, 13, 1.8);
+  topLight.castShadow = true;
+  topLight.shadow.mapSize.set(1024, 1024);
+  topLight.shadow.camera.near = 0.5; topLight.shadow.camera.far = 40;
+  topLight.shadow.camera.left = -5;  topLight.shadow.camera.right = 5;
+  topLight.shadow.camera.top = 5;    topLight.shadow.camera.bottom = -5;
+  scene.add(topLight);
+  // Cool-blue fill from the side to separate items from wok floor
+  const fill = new THREE.DirectionalLight(0x9AACCC, 0.38);
+  fill.position.set(-6, 4, 2); scene.add(fill);
 
   // ── Local helpers for building scene geometry ─────────────────────
   const Mλ = c => new THREE.MeshLambertMaterial({color: c});
@@ -283,37 +283,37 @@ function initThree() {
   const TOR  = (r,t,rs=8,ts=32) => new THREE.TorusGeometry(r,t,rs,ts);
   const CONE = (r,h,s=10) => new THREE.ConeGeometry(r,h,s);
 
-  // ── Back wall: Chinese red storefront ─────────────────────────────
-  sAdd(BOX(32, 15, 0.5),  Mλ(0xC0381C), 0,  1,   -9.4);   // main wall
-  sAdd(BOX(32, 0.75, 0.9),Mλ(0x7A1A08), 0,  7.3, -9.1);   // top beam
-  sAdd(BOX(32, 2.4, 0.7), Mλ(0xA02810), 0, -2.5, -9.1);   // base strip
+  // ── Back wall: low-saturation clay gray ──────────────────────────
+  sAdd(BOX(32, 15, 0.5),  Mλ(0xBBB5AD), 0,  1,   -9.4);   // main wall
+  sAdd(BOX(32, 0.75, 0.9),Mλ(0x9A948C), 0,  7.3, -9.1);   // top beam
+  sAdd(BOX(32, 2.4, 0.7), Mλ(0xAEA8A0), 0, -2.5, -9.1);   // base strip
 
   // Three lattice window panels
   [-5.8, 0, 5.8].forEach(wx => {
-    sAdd(BOX(3.4, 4.0, 0.7), Mλ(0x8B1E0C), wx, 2.5, -9.1);    // outer frame
-    sAdd(BOX(2.65, 3.25, 0.75),Mλ(0xFFE4A8), wx, 2.5, -9.06);  // cream inner
+    sAdd(BOX(3.4, 4.0, 0.7), Mλ(0x8A847C), wx, 2.5, -9.1);    // outer frame
+    sAdd(BOX(2.65, 3.25, 0.75),Mλ(0xEDE8E0), wx, 2.5, -9.06);  // cream inner
     // Lattice bars
     [-0.66, 0, 0.66].forEach(lx =>
-      sAdd(BOX(0.08, 3.18, 0.8), Mλ(0x8B1E0C), wx+lx, 2.5, -9.02));
+      sAdd(BOX(0.08, 3.18, 0.8), Mλ(0x8A847C), wx+lx, 2.5, -9.02));
     [-0.78, 0, 0.78].forEach(ly =>
-      sAdd(BOX(2.6, 0.08, 0.8), Mλ(0x8B1E0C), wx, 2.5+ly, -9.02));
+      sAdd(BOX(2.6, 0.08, 0.8), Mλ(0x8A847C), wx, 2.5+ly, -9.02));
     // Diamond accents at intersections
     [-0.66,0,0.66].forEach(lx => [-0.78,0,0.78].forEach(ly => {
-      const d = new THREE.Mesh(BOX(0.16,0.16,0.82), Mλ(0xFF6622));
+      const d = new THREE.Mesh(BOX(0.16,0.16,0.82), Mλ(0xC8945A));
       d.rotation.y = Math.PI/4; d.position.set(wx+lx, 2.5+ly, -8.98); scene.add(d);
     }));
   });
 
   // Vertical pillars between panels
   [-3.05, 3.05].forEach(px =>
-    sAdd(BOX(0.55, 10, 0.75), Mλ(0x7A1A08), px, 0.5, -9.1));
+    sAdd(BOX(0.55, 10, 0.75), Mλ(0x908A82), px, 0.5, -9.1));
 
-  // ── Wooden counter top ────────────────────────────────────────────
-  const ctop = new THREE.Mesh(BOX(22, 0.38, 8), Mλ(0xC8904A));
+  // ── Wooden counter top: cool light natural wood ───────────────────
+  const ctop = new THREE.Mesh(BOX(22, 0.38, 8), Mλ(0xD4C888));
   ctop.receiveShadow = true; ctop.position.set(0, -0.92, 0.3); scene.add(ctop);
-  sAdd(BOX(22, 0.4, 0.22), Mλ(0x9A6830), 0, -0.9, 4.35);      // front edge
+  sAdd(BOX(22, 0.4, 0.22), Mλ(0xB8A870), 0, -0.9, 4.35);      // front edge
   for (let gx = -10.8; gx <= 10.8; gx += 1.05)                // grain lines
-    sAdd(BOX(0.07, 0.39, 7.95), Mλ(0xAA7235), gx, -0.92, 0.3);
+    sAdd(BOX(0.07, 0.39, 7.95), Mλ(0xC0B47A), gx, -0.92, 0.3);
 
   // ── Hanging red lanterns ──────────────────────────────────────────
   function addLantern(x, y, z) {
@@ -349,17 +349,6 @@ function initThree() {
   addLantern(0,    6.3, -1.8);
   addLantern(5.5,  5.9, -2.2);
 
-  // ── Side props ────────────────────────────────────────────────────
-  // Left: bamboo steamer stack
-  [0,1,2].forEach(i => {
-    sAdd(CYL(0.7,0.7,0.28,14), Mλ(i%2?0xB88840:0xD0A050), -6.8,-0.78+i*0.3,-0.5);
-    sAdd(TOR(0.69,0.032,6,22),  Mλ(0x7A5020),              -6.8,-0.64+i*0.3,-0.5, Math.PI/2);
-  });
-  // Right: clay pot decoration
-  sAdd(SPH(0.55,12,8), Mλ(0xB05020), 6.8,-0.52,-0.5);
-  sAdd(CYL(0.42,0.48,0.18,10), Mλ(0x904010), 6.8,-0.14,-0.5);
-  sAdd(CYL(0.22,0.36,0.12,10), Mλ(0xA04818), 6.8, 0.00,-0.5);
-
   // ── Main game wok (iron pot) ──────────────────────────────────────
   buildWok();
 
@@ -376,7 +365,7 @@ function onResize() {
 
 // ── Geometry helpers ──────────────────────────────────────────────
 function matL(color) { return new THREE.MeshLambertMaterial({color}); }
-function mk(geo, color) { const m = new THREE.Mesh(geo, matL(color)); m.castShadow = true; return m; }
+function mk(geo, color) { const m = new THREE.Mesh(geo, matL(color)); m.castShadow = true; m.receiveShadow = true; return m; }
 function sp(r, c, sw=10, sh=8) { return mk(new THREE.SphereGeometry(r,sw,sh), c); }
 function cy(rt, rb, h, c, s=8) { return mk(new THREE.CylinderGeometry(rt,rb,h,s), c); }
 function co(r, h, c, s=8)      { return mk(new THREE.ConeGeometry(r,h,s), c); }
@@ -418,10 +407,10 @@ function getThumb(typeIdx) {
 // ── Item 3D builders ──────────────────────────────────────────────
 function buildCarrot() {
   const g = new THREE.Group();
-  const body = co(0.19, 0.48, 0xff8c00); body.rotation.x = Math.PI; body.position.y = -0.02; g.add(body);
+  const body = co(0.19, 0.48, 0xF5820A); body.rotation.x = Math.PI; body.position.y = -0.02; g.add(body);
   for (let i = 0; i < 3; i++) {
     const a = (i/3)*Math.PI*2;
-    const leaf = co(0.045, 0.22, 0x2e7d32, 5);
+    const leaf = co(0.045, 0.22, 0x1A9040, 5);
     leaf.position.set(Math.cos(a)*0.06, 0.22, Math.sin(a)*0.06);
     leaf.rotation.z = Math.cos(a)*0.45; leaf.rotation.x = Math.sin(a)*0.25; g.add(leaf);
   }
@@ -429,27 +418,27 @@ function buildCarrot() {
 }
 function buildBroccoli() {
   const g = new THREE.Group();
-  const stem = cy(0.05, 0.07, 0.28, 0x33691e); stem.position.y = -0.14; g.add(stem);
-  const head = sp(0.17, 0x2e7d32); head.position.y = 0.08; g.add(head);
+  const stem = cy(0.05, 0.07, 0.28, 0x2A7A28); stem.position.y = -0.14; g.add(stem);
+  const head = sp(0.17, 0x18903A); head.position.y = 0.08; g.add(head);
   for (let i = 0; i < 6; i++) {
     const a = (i/6)*Math.PI*2;
-    const b = sp(0.075, 0x388e3c, 7, 5); b.position.set(Math.cos(a)*0.13, 0.1, Math.sin(a)*0.13); g.add(b);
+    const b = sp(0.075, 0x22A848, 7, 5); b.position.set(Math.cos(a)*0.13, 0.1, Math.sin(a)*0.13); g.add(b);
   }
   return g;
 }
 function buildTomato() {
   const g = new THREE.Group();
-  g.add(sp(0.21, 0xc62828));
-  const top = sp(0.075, 0x2e7d32, 7, 5); top.position.y = 0.18; g.add(top);
-  const stem = cy(0.018, 0.018, 0.09, 0x2d7000); stem.position.y = 0.26; g.add(stem);
+  g.add(sp(0.21, 0xE8102A));  // cool bright red
+  const top = sp(0.075, 0x18903A, 7, 5); top.position.y = 0.18; g.add(top);
+  const stem = cy(0.018, 0.018, 0.09, 0x1A7800); stem.position.y = 0.26; g.add(stem);
   return g;
 }
 function buildCorn() {
   const g = new THREE.Group();
-  g.add(cy(0.1, 0.085, 0.43, 0xffcc00));
+  g.add(cy(0.1, 0.085, 0.43, 0xECE018));  // bright lemon yellow
   for (let i = 0; i < 3; i++) {
     const a = (i/3)*Math.PI*2;
-    const leaf = bx(0.055, 0.32, 0.02, 0x2e7d32);
+    const leaf = bx(0.055, 0.32, 0.02, 0x18903A);
     leaf.position.set(Math.cos(a)*0.12, -0.14, Math.sin(a)*0.12);
     leaf.rotation.y = a; leaf.rotation.z = Math.cos(a)*0.38; g.add(leaf);
   }
@@ -457,41 +446,41 @@ function buildCorn() {
 }
 function buildApple() {
   const g = new THREE.Group();
-  const body = sp(0.21, 0xc62828); body.scale.y = 0.87; g.add(body);
+  const body = sp(0.21, 0xD01028); body.scale.y = 0.87; g.add(body);
   const stem = cy(0.022, 0.018, 0.11, 0x5a3010); stem.position.y = 0.23; g.add(stem);
-  const leaf = bx(0.09, 0.055, 0.02, 0x2e7d32); leaf.position.set(0.08, 0.3, 0); leaf.rotation.z = -0.45; g.add(leaf);
+  const leaf = bx(0.09, 0.055, 0.02, 0x18903A); leaf.position.set(0.08, 0.3, 0); leaf.rotation.z = -0.45; g.add(leaf);
   return g;
 }
 function buildLemon() {
   const g = new THREE.Group();
-  const body = sp(0.17, 0xfdd835); body.scale.x = 1.42; body.scale.z = 0.92; g.add(body);
+  const body = sp(0.17, 0xF0E018); body.scale.x = 1.42; body.scale.z = 0.92; g.add(body);
   for (const s of [-1, 1]) {
-    const tip = co(0.04, 0.065, 0xf9a825, 6); tip.position.x = s*0.27; tip.rotation.z = s>0?-Math.PI/2:Math.PI/2; g.add(tip);
+    const tip = co(0.04, 0.065, 0xD8C010, 6); tip.position.x = s*0.27; tip.rotation.z = s>0?-Math.PI/2:Math.PI/2; g.add(tip);
   }
   return g;
 }
 function buildEgg() {
   const g = new THREE.Group();
-  const body = sp(0.17, 0xfff8e7); body.scale.y = 1.28; body.scale.x = 0.88; g.add(body);
+  const body = sp(0.17, 0xFFF8F0); body.scale.y = 1.28; body.scale.x = 0.88; g.add(body);
   return g;
 }
 function buildMushroom() {
   const g = new THREE.Group();
-  const cap = sp(0.21, 0x8d4513); cap.scale.y = 0.48; cap.position.y = 0.11; g.add(cap);
-  const under = mk(new THREE.CylinderGeometry(0.19,0.11,0.045,10), 0xfaebd7); under.position.y = 0.01; g.add(under);
-  const stem = cy(0.07, 0.09, 0.24, 0xfaebd7); stem.position.y = -0.17; g.add(stem);
+  const cap = sp(0.21, 0xA04820); cap.scale.y = 0.48; cap.position.y = 0.11; g.add(cap);
+  const under = mk(new THREE.CylinderGeometry(0.19,0.11,0.045,10), 0xF0E8D8); under.position.y = 0.01; g.add(under);
+  const stem = cy(0.07, 0.09, 0.24, 0xEEE4CC); stem.position.y = -0.17; g.add(stem);
   for (let i = 0; i < 4; i++) {
     const a = (i/4)*Math.PI*2;
-    const dot = sp(0.03, 0xfafafa, 5, 4); dot.position.set(Math.cos(a)*0.12, 0.14, Math.sin(a)*0.12); g.add(dot);
+    const dot = sp(0.03, 0xFFFFFF, 5, 4); dot.position.set(Math.cos(a)*0.12, 0.14, Math.sin(a)*0.12); g.add(dot);
   }
   return g;
 }
 function buildOnion() {
   const g = new THREE.Group();
-  const body = sp(0.19, 0x9c27b0); body.scale.y = 0.88; g.add(body);
+  const body = sp(0.19, 0xA028C0); body.scale.y = 0.88; g.add(body);  // bright purple
   for (let i = 0; i < 3; i++) {
     const a = (i/3)*Math.PI*2;
-    const s = cy(0.018, 0.012, 0.16, 0x2e7d32);
+    const s = cy(0.018, 0.012, 0.16, 0x18903A);
     s.position.set(Math.cos(a)*0.045, 0.21, Math.sin(a)*0.045);
     s.rotation.z = Math.cos(a)*0.28; s.rotation.x = Math.sin(a)*0.28; g.add(s);
   }
@@ -499,27 +488,27 @@ function buildOnion() {
 }
 function buildGarlic() {
   const g = new THREE.Group();
-  const body = sp(0.17, 0xfafafa); body.scale.y = 0.82; g.add(body);
+  const body = sp(0.17, 0xF5F0EA); body.scale.y = 0.82; g.add(body);
   for (let i = 0; i < 5; i++) {
     const a = (i/5)*Math.PI*2;
-    const clove = sp(0.055, 0xeee0c0, 6, 5);
+    const clove = sp(0.055, 0xEEDEB8, 6, 5);
     clove.position.set(Math.cos(a)*0.14, -0.04, Math.sin(a)*0.14); clove.scale.y = 1.5; g.add(clove);
   }
-  const tip = co(0.035, 0.09, 0xd4c4a0, 5); tip.position.y = 0.17; g.add(tip);
+  const tip = co(0.035, 0.09, 0xD8C898, 5); tip.position.y = 0.17; g.add(tip);
   return g;
 }
 function buildPepper() {
   const g = new THREE.Group();
-  const body = sp(0.12, 0xd32f2f); body.scale.y = 2.1; body.scale.x = 0.75; body.position.y = -0.05; g.add(body);
-  const stem = cy(0.018, 0.015, 0.09, 0x2d7000); stem.position.y = 0.22; g.add(stem);
+  const body = sp(0.12, 0xE81028); body.scale.y = 2.1; body.scale.x = 0.75; body.position.y = -0.05; g.add(body);
+  const stem = cy(0.018, 0.015, 0.09, 0x1A7800); stem.position.y = 0.22; g.add(stem);
   return g;
 }
 function buildPotato() {
   const g = new THREE.Group();
-  const body = sp(0.19, 0x8b7355); body.scale.set(1.0, 0.83, 1.12); g.add(body);
+  const body = sp(0.19, 0x9A8060); body.scale.set(1.0, 0.83, 1.12); g.add(body);
   for (let i = 0; i < 4; i++) {
     const a = (i/4)*Math.PI*2;
-    const eye = sp(0.027, 0x6d5930, 5, 4); eye.position.set(Math.cos(a)*0.16, Math.sin(a*0.6)*0.08, Math.sin(a)*0.16); g.add(eye);
+    const eye = sp(0.027, 0x7A6040, 5, 4); eye.position.set(Math.cos(a)*0.16, Math.sin(a*0.6)*0.08, Math.sin(a)*0.16); g.add(eye);
   }
   return g;
 }
@@ -548,6 +537,20 @@ function buildGooseModel() {
   return g;
 }
 
+// Inverted-hull white outline: slightly enlarged backface mesh on each sub-mesh
+function addOutlines(grp) {
+  const outMat = new THREE.MeshBasicMaterial({
+    color: 0xFFFFFF, side: THREE.BackSide, transparent: true, opacity: 0.78,
+  });
+  const meshes = [];
+  grp.traverse(c => { if (c.isMesh) meshes.push(c); });
+  for (const m of meshes) {
+    const o = new THREE.Mesh(m.geometry, outMat);
+    o.scale.setScalar(1.08);
+    m.add(o);
+  }
+}
+
 // ── Item class ────────────────────────────────────────────────────
 class Item {
   constructor(typeIdx) {
@@ -557,6 +560,7 @@ class Item {
     this.id = Math.random().toString(36).slice(2,9);
     this.inPile = false; this.animating = false;
     this.group = BUILDERS[typeIdx]();
+    addOutlines(this.group);
     this.group.traverse(c => { if (c.isMesh) c._item = this; });
     this.group._item = this;
   }
@@ -567,9 +571,10 @@ class Item {
 // ── Position generation: blue-noise Poisson-disk, flat plane ─────
 // ── Wok visual model ─────────────────────────────────────────────
 function buildWok() {
-  const ironMat = new THREE.MeshLambertMaterial({color: 0x2C2C2C, side: THREE.DoubleSide});
-  const darkMat = new THREE.MeshLambertMaterial({color: 0x1A1A1A});
-  const rimMat  = new THREE.MeshLambertMaterial({color: 0x484848});
+  // Dark brown inner, near-black outer, bright metal rim — strong contrast with vegetables
+  const ironMat = new THREE.MeshLambertMaterial({color: 0x1C0E08, side: THREE.DoubleSide});
+  const darkMat = new THREE.MeshLambertMaterial({color: 0x141010});
+  const rimMat  = new THREE.MeshLambertMaterial({color: 0x848484});
 
   // Inner bowl: parabolic LatheGeometry matching physics formula
   const innerPts = [];
@@ -577,7 +582,9 @@ function buildWok() {
     const t = i / 32;
     innerPts.push(new THREE.Vector2(t * WOK_R, WOK_BOT + WOK_D * t * t));
   }
-  scene.add(new THREE.Mesh(new THREE.LatheGeometry(innerPts, 56), ironMat));
+  const innerMesh = new THREE.Mesh(new THREE.LatheGeometry(innerPts, 56), ironMat);
+  innerMesh.receiveShadow = true;
+  scene.add(innerMesh);
 
   // Outer shell (thickness ~0.12)
   const outerPts = [new THREE.Vector2(0, WOK_BOT - 0.14)];
