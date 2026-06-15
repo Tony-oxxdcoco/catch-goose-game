@@ -363,12 +363,40 @@ function initThree() {
   [-3.05, 3.05].forEach(px =>
     sAdd(BOX(0.55, 10, 0.75), Mλ(0x908A82), px, 0.5, -9.1));
 
-  // ── Wooden counter top: cool light natural wood ───────────────────
-  const ctop = new THREE.Mesh(BOX(22, 0.38, 8), Mλ(0xD4C888));
+  // ── Wooden counter: rich walnut planks + red lacquer border ─────
+  // Base slab (dark walnut fill)
+  const ctop = new THREE.Mesh(BOX(22, 0.38, 8), Mλ(0x4A2410));
   ctop.receiveShadow = true; ctop.position.set(0, -0.92, 0.3); scene.add(ctop);
-  sAdd(BOX(22, 0.4, 0.22), Mλ(0xB8A870), 0, -0.9, 4.35);      // front edge
-  for (let gx = -10.8; gx <= 10.8; gx += 1.05)                // grain lines
-    sAdd(BOX(0.07, 0.39, 7.95), Mλ(0xC0B47A), gx, -0.92, 0.3);
+
+  // Alternating wood planks (running front-to-back along Z)
+  const PCOLORS = [0x8B4A28, 0x7A3E20, 0x9C5832, 0x6C3618, 0x8C4C28, 0xA05A38];
+  for (let i = 0; i < 21; i++) {
+    const px = -10.25 + i * 1.01;
+    sAdd(BOX(0.92, 0.39, 7.68), Mλ(PCOLORS[i % PCOLORS.length]), px, -0.92, 0.25);
+  }
+  // High-contrast grain within planks
+  for (let gx = -10.7; gx <= 10.7; gx += 0.26)
+    sAdd(BOX(0.025, 0.394, 7.7), Mλ(0x2A1006), gx, -0.92, 0.25);
+  // Wide plank dividers
+  for (let gx = -10.25; gx <= 10.3; gx += 1.01)
+    sAdd(BOX(0.07, 0.396, 7.72), Mλ(0x1E0A04), gx, -0.92, 0.25);
+
+  // Red lacquer border strip around counter top edges
+  const BW = 0.32, CZ = 0.25, CX = 0;
+  sAdd(BOX(22, 0.396, BW), Mλ(0xB01A0A), CX,    -0.92, 4.24);   // front strip
+  sAdd(BOX(22, 0.396, BW), Mλ(0xB01A0A), CX,    -0.92, -3.68);  // back strip
+  sAdd(BOX(BW,  0.396, 8), Mλ(0xB01A0A), -10.84, -0.92, CZ);    // left strip
+  sAdd(BOX(BW,  0.396, 8), Mλ(0xB01A0A),  10.84, -0.92, CZ);    // right strip
+  // Gold accent line on top of red border
+  sAdd(BOX(22, 0.04, 0.045), Mλ(0xD4A820), CX, -0.725, 4.09);
+  sAdd(BOX(22, 0.04, 0.045), Mλ(0xD4A820), CX, -0.725, -3.52);
+  sAdd(BOX(0.045, 0.04, 8), Mλ(0xD4A820), -10.69, -0.725, CZ);
+  sAdd(BOX(0.045, 0.04, 8), Mλ(0xD4A820),  10.69, -0.725, CZ);
+
+  // Front face molding (visible from slight front angle)
+  sAdd(BOX(22, 0.52, 0.20), Mλ(0x8B4A28), CX, -0.90, 4.40);   // walnut face
+  sAdd(BOX(22, 0.07, 0.22), Mλ(0xD4A820), CX, -0.70, 4.40);   // gold top rail
+  sAdd(BOX(22, 0.07, 0.22), Mλ(0xB01A0A), CX, -1.14, 4.40);   // red bottom rail
 
   // ── Hanging red lanterns ──────────────────────────────────────────
   function addLantern(x, y, z) {
