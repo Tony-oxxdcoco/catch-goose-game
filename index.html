@@ -1236,14 +1236,23 @@ function doRevive() {
   if (G.revives <= 0) return;
   G.revives--;
   document.getElementById('revive-cnt').textContent = `💊×${G.revives}`;
-  // Clear the tray — give the player a fresh start
+
+  // Return tray items to wok — their physics bodies were already removed on
+  // pickup, so re-queue them to fall back in as if freshly spawned
+  const returned = [...G.tray];
   G.tray = [];
   G.history = [];
-  G.pendingPicks = 0;
+  const now = performance.now();
+  returned.forEach((item, i) => {
+    item.animating = false;
+    item.group.scale.setScalar(1.6);
+    spawnQ.push({ item, t: now + i * 60 });
+  });
+
   G.running = true;
   rebuildTrayDOM(); updateTrayUI(); updateRem();
   hideScrAll();
-  toast('💊 复活！暂存栏已清空');
+  toast('💊 复活！道具归还锅中～');
 }
 
 // ── Shake ─────────────────────────────────────────────────────────
