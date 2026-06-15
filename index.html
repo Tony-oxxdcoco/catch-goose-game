@@ -54,13 +54,14 @@ canvas{display:block}
 }
 #tray{display:flex;justify-content:center;gap:5px;max-width:500px;margin:0 auto}
 .slot{
-  flex:1;max-width:62px;height:62px;
+  flex:1;max-width:56px;height:60px;
   border:2px solid rgba(255,255,255,.15);border-radius:12px;
   background:rgba(255,255,255,.06);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  font-size:27px;position:relative;
+  gap:2px;position:relative;
   transition:border-color .15s,background .15s
 }
+.slot img{width:36px;height:36px;object-fit:contain;display:block;pointer-events:none}
 .slot.filled{border-color:rgba(255,255,255,.4)}
 .slot-label{font-size:9px;color:rgba(255,255,255,.65);margin-top:2px;line-height:1}
 .slot.pop{animation:slotPop .32s ease forwards}
@@ -226,58 +227,136 @@ function initThree() {
   const cv = document.getElementById('c');
   renderer = new THREE.WebGLRenderer({canvas:cv, antialias:true});
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-  renderer.setClearColor(0x1a1f2e, 1);
+  renderer.setClearColor(0xFFAA6E, 1);   // warm sunset peach
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x1a1f2e, 16, 28);
+  scene.fog = new THREE.Fog(0xFFAA6E, 14, 26);
 
-  // Closer camera for mobile — pile fills more of the screen
-  camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
-  camera.position.set(0, 7.5, 9.5);
-  camera.lookAt(0, 1.2, 0);
+  camera = new THREE.PerspectiveCamera(56, 1, 0.1, 100);
+  camera.position.set(0, 8, 10.5);
+  camera.lookAt(0, 0.8, 0);
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-  const sun = new THREE.DirectionalLight(0xfff8e1, 0.9);
-  sun.position.set(4, 10, 6);
+  // Warm key light + cool fill + soft rim
+  scene.add(new THREE.AmbientLight(0xFFE0B0, 0.72));
+  const sun = new THREE.DirectionalLight(0xFFCC55, 1.05);
+  sun.position.set(5, 10, 6);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
-  sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 30;
-  sun.shadow.camera.left = -8; sun.shadow.camera.right = 8;
-  sun.shadow.camera.top = 8;   sun.shadow.camera.bottom = -8;
+  sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 36;
+  sun.shadow.camera.left = -10; sun.shadow.camera.right = 10;
+  sun.shadow.camera.top = 10;   sun.shadow.camera.bottom = -10;
   scene.add(sun);
-  const fill = new THREE.DirectionalLight(0x88aaff, 0.3);
-  fill.position.set(-4, 3, -4);
-  scene.add(fill);
+  const fill = new THREE.DirectionalLight(0x88AAFF, 0.28);
+  fill.position.set(-5, 3, -2); scene.add(fill);
+  const rim = new THREE.DirectionalLight(0xFF8855, 0.18);
+  rim.position.set(0, -1, -6); scene.add(rim);
 
-  // Ground platform
-  const ground = new THREE.Mesh(
-    new THREE.CircleGeometry(7, 64),
-    new THREE.MeshLambertMaterial({color:0x0f1622})
-  );
-  ground.rotation.x = -Math.PI/2;
-  ground.position.y = -0.9;
-  ground.receiveShadow = true;
-  scene.add(ground);
+  // ── Local helpers for building scene geometry ─────────────────────
+  const Mλ = c => new THREE.MeshLambertMaterial({color: c});
+  const Mb = (c, op) => new THREE.MeshBasicMaterial({color:c, transparent:true, opacity:op, side:THREE.DoubleSide});
+  function sAdd(geo, mat, px, py, pz, rx, ry, rz) {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(px, py, pz);
+    if (rx) m.rotation.x = rx;
+    if (ry) m.rotation.y = ry;
+    if (rz) m.rotation.z = rz;
+    scene.add(m); return m;
+  }
+  const BOX  = (w,h,d) => new THREE.BoxGeometry(w,h,d);
+  const CYL  = (r1,r2,h,s=12) => new THREE.CylinderGeometry(r1,r2,h,s);
+  const SPH  = (r,s=10,t=8) => new THREE.SphereGeometry(r,s,t);
+  const TOR  = (r,t,rs=8,ts=32) => new THREE.TorusGeometry(r,t,rs,ts);
+  const CONE = (r,h,s=10) => new THREE.ConeGeometry(r,h,s);
 
-  // Inner play-area highlight ring
-  const innerRing = new THREE.Mesh(
-    new THREE.RingGeometry(3.0, 3.28, 72),
-    new THREE.MeshBasicMaterial({color:0x2a4a7a, transparent:true, opacity:0.45, side:THREE.DoubleSide})
-  );
-  innerRing.rotation.x = -Math.PI/2;
-  innerRing.position.y = -0.88;
-  scene.add(innerRing);
+  // ── Back wall: Chinese red storefront ─────────────────────────────
+  sAdd(BOX(32, 15, 0.5),  Mλ(0xC0381C), 0,  1,   -9.4);   // main wall
+  sAdd(BOX(32, 0.75, 0.9),Mλ(0x7A1A08), 0,  7.3, -9.1);   // top beam
+  sAdd(BOX(32, 2.4, 0.7), Mλ(0xA02810), 0, -2.5, -9.1);   // base strip
 
-  // Outer glow ring
-  const outerRing = new THREE.Mesh(
-    new THREE.RingGeometry(3.28, 3.5, 72),
-    new THREE.MeshBasicMaterial({color:0x1a3a6a, transparent:true, opacity:0.25, side:THREE.DoubleSide})
-  );
-  outerRing.rotation.x = -Math.PI/2;
-  outerRing.position.y = -0.87;
-  scene.add(outerRing);
+  // Three lattice window panels
+  [-5.8, 0, 5.8].forEach(wx => {
+    sAdd(BOX(3.4, 4.0, 0.7), Mλ(0x8B1E0C), wx, 2.5, -9.1);    // outer frame
+    sAdd(BOX(2.65, 3.25, 0.75),Mλ(0xFFE4A8), wx, 2.5, -9.06);  // cream inner
+    // Lattice bars
+    [-0.66, 0, 0.66].forEach(lx =>
+      sAdd(BOX(0.08, 3.18, 0.8), Mλ(0x8B1E0C), wx+lx, 2.5, -9.02));
+    [-0.78, 0, 0.78].forEach(ly =>
+      sAdd(BOX(2.6, 0.08, 0.8), Mλ(0x8B1E0C), wx, 2.5+ly, -9.02));
+    // Diamond accents at intersections
+    [-0.66,0,0.66].forEach(lx => [-0.78,0,0.78].forEach(ly => {
+      const d = new THREE.Mesh(BOX(0.16,0.16,0.82), Mλ(0xFF6622));
+      d.rotation.y = Math.PI/4; d.position.set(wx+lx, 2.5+ly, -8.98); scene.add(d);
+    }));
+  });
+
+  // Vertical pillars between panels
+  [-3.05, 3.05].forEach(px =>
+    sAdd(BOX(0.55, 10, 0.75), Mλ(0x7A1A08), px, 0.5, -9.1));
+
+  // ── Wooden counter top ────────────────────────────────────────────
+  const ctop = new THREE.Mesh(BOX(22, 0.38, 8), Mλ(0xC8904A));
+  ctop.receiveShadow = true; ctop.position.set(0, -0.92, 0.3); scene.add(ctop);
+  sAdd(BOX(22, 0.4, 0.22), Mλ(0x9A6830), 0, -0.9, 4.35);      // front edge
+  for (let gx = -10.8; gx <= 10.8; gx += 1.05)                // grain lines
+    sAdd(BOX(0.07, 0.39, 7.95), Mλ(0xAA7235), gx, -0.92, 0.3);
+
+  // ── Hanging red lanterns ──────────────────────────────────────────
+  function addLantern(x, y, z) {
+    const lg = new THREE.Group();
+    // Hanging wire
+    new THREE.Mesh(BOX(0.04,1.1,0.04), Mλ(0xD4A017)).position.y = 0.82;
+    const wire = new THREE.Mesh(BOX(0.04,1.1,0.04), Mλ(0xD4A017));
+    wire.position.y = 0.82; lg.add(wire);
+    // Gold top cap
+    const ct = new THREE.Mesh(CYL(0.12,0.26,0.18), Mλ(0xD4A017));
+    ct.position.y = 0.28; lg.add(ct);
+    // Red body (squashed cylinder)
+    const body = new THREE.Mesh(CYL(0.32,0.32,0.66,16), Mλ(0xCC1122));
+    body.scale.x = 0.78; lg.add(body);
+    // Vertical ribs
+    for (let i = 0; i < 8; i++) {
+      const a = (i/8)*Math.PI*2;
+      const rib = new THREE.Mesh(BOX(0.034,0.7,0.03), Mλ(0xAA0011));
+      rib.position.set(Math.cos(a)*0.27,0,Math.sin(a)*0.22); rib.rotation.y=a; lg.add(rib);
+    }
+    // Gold bottom cap
+    const cb = new THREE.Mesh(CYL(0.26,0.12,0.18), Mλ(0xD4A017));
+    cb.position.y = -0.39; lg.add(cb);
+    // Tassel
+    const tassel = new THREE.Mesh(CONE(0.04, 0.38, 6), Mλ(0xFF3300));
+    tassel.position.y = -0.66; lg.add(tassel);
+    // Warm glow
+    const pl = new THREE.PointLight(0xFF9922, 0.6, 4.5);
+    pl.position.y = -0.1; lg.add(pl);
+    lg.position.set(x, y, z); scene.add(lg);
+  }
+  addLantern(-5.5, 5.9, -2.2);
+  addLantern(0,    6.3, -1.8);
+  addLantern(5.5,  5.9, -2.2);
+
+  // ── Side props ────────────────────────────────────────────────────
+  // Left: bamboo steamer stack
+  [0,1,2].forEach(i => {
+    sAdd(CYL(0.7,0.7,0.28,14), Mλ(i%2?0xB88840:0xD0A050), -5.4,-0.78+i*0.3,-0.8);
+    sAdd(TOR(0.69,0.032,6,22),  Mλ(0x7A5020),              -5.4,-0.64+i*0.3,-0.8, Math.PI/2);
+  });
+  // Right: iron wok
+  const wok = new THREE.Mesh(SPH(0.74,14,10), Mλ(0x2A2A2A));
+  wok.scale.y=0.58; wok.position.set(5.4,-0.5,-0.9); wok.castShadow=true; scene.add(wok);
+  sAdd(TOR(0.72,0.06,8,22), Mλ(0x444444), 5.4,-0.06,-0.9, Math.PI/2);
+  // Wok handles
+  [-1,1].forEach(s => {
+    const h = new THREE.Mesh(TOR(0.22,0.04,6,12), Mλ(0x555555));
+    h.rotation.z=Math.PI/2; h.position.set(5.4+s*0.86,-0.12,-0.9); scene.add(h);
+  });
+
+  // ── Play-area golden boundary ring ───────────────────────────────
+  const gRing = new THREE.Mesh(TOR(3.22, 0.068, 8, 72), new THREE.MeshBasicMaterial({color:0xFFD040, transparent:true, opacity:0.7}));
+  gRing.rotation.x = Math.PI/2; gRing.position.y = -0.86; scene.add(gRing);
+  const gRing2 = new THREE.Mesh(TOR(3.5, 0.04, 6, 72), new THREE.MeshBasicMaterial({color:0xFF9922, transparent:true, opacity:0.3}));
+  gRing2.rotation.x = Math.PI/2; gRing2.position.y = -0.85; scene.add(gRing2);
 
   raycaster = new THREE.Raycaster();
   onResize();
@@ -297,6 +376,39 @@ function sp(r, c, sw=10, sh=8) { return mk(new THREE.SphereGeometry(r,sw,sh), c)
 function cy(rt, rb, h, c, s=8) { return mk(new THREE.CylinderGeometry(rt,rb,h,s), c); }
 function co(r, h, c, s=8)      { return mk(new THREE.ConeGeometry(r,h,s), c); }
 function bx(w, h, d, c)        { return mk(new THREE.BoxGeometry(w,h,d), c); }
+
+// ── Tray thumbnail renderer (mini WebGL render, cached per type) ──
+let _tR = null, _tS = null, _tC = null;
+const _tCache = {};
+
+function _initThumbs() {
+  const cv = document.createElement('canvas');
+  cv.width = 72; cv.height = 72;
+  _tR = new THREE.WebGLRenderer({canvas:cv, antialias:true, alpha:true});
+  _tR.setClearColor(0, 0);
+  _tR.setSize(72, 72);
+  _tS = new THREE.Scene();
+  _tC = new THREE.PerspectiveCamera(36, 1, 0.1, 20);
+  _tC.position.set(0.2, 0.5, 2.9); _tC.lookAt(0, 0.05, 0);
+  _tS.add(new THREE.AmbientLight(0xffffff, 0.8));
+  const dl = new THREE.DirectionalLight(0xFFF0D0, 1.0);
+  dl.position.set(2, 4, 3); _tS.add(dl);
+  const dl2 = new THREE.DirectionalLight(0xAABBFF, 0.45);
+  dl2.position.set(-2, 1, 2); _tS.add(dl2);
+}
+
+function getThumb(typeIdx) {
+  if (_tCache[typeIdx]) return _tCache[typeIdx];
+  if (!_tR) _initThumbs();
+  const g = BUILDERS[typeIdx]();
+  g.scale.setScalar(2.1); g.rotation.y = 0.4; g.rotation.x = -0.18;
+  _tS.add(g);
+  _tR.render(_tS, _tC);
+  _tS.remove(g);
+  g.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+  _tCache[typeIdx] = _tR.domElement.toDataURL('image/png');
+  return _tCache[typeIdx];
+}
 
 // ── Item 3D builders ──────────────────────────────────────────────
 function buildCarrot() {
@@ -1010,9 +1122,10 @@ function updateTrayUI() {
     if (item) {
       const c = TYPES[item.typeIdx].color;
       const hex = '#' + c.toString(16).padStart(6,'0');
-      s.innerHTML = `<span>${item.emoji}</span><div class="slot-label">${item.label}</div>`;
+      const thumb = getThumb(item.typeIdx);
+      s.innerHTML = `<img src="${thumb}" alt="${item.label}"><div class="slot-label">${item.label}</div>`;
       s.className = 'slot filled';
-      s.style.background = hex + '22'; s.style.borderColor = hex + '99';
+      s.style.background = hex + '28'; s.style.borderColor = hex + 'aa';
     } else {
       s.innerHTML = ''; s.className = 'slot'; s.style.background = ''; s.style.borderColor = '';
     }
