@@ -151,6 +151,59 @@ canvas{display:block}
   z-index:60;opacity:0;transition:opacity .25s;white-space:nowrap
 }
 #toast.on{opacity:1}
+
+/* ── Auth & Leaderboard screens ──────────────────────────── */
+#scr-auth{background:radial-gradient(ellipse at 50% 60%,#1a2a4a,#0a1020)}
+#scr-leader{background:radial-gradient(ellipse at 50% 40%,#1a2040,#0d1025)}
+.auth-box{
+  background:rgba(0,0,0,.52);backdrop-filter:blur(14px);
+  border:1px solid rgba(255,255,255,.1);border-radius:24px;
+  padding:28px 22px 20px;width:min(340px,90vw);
+  display:flex;flex-direction:column;align-items:center;gap:10px
+}
+.segmented{
+  display:flex;background:rgba(255,255,255,.08);
+  border-radius:20px;padding:4px;gap:2px;width:100%
+}
+.seg-btn{
+  flex:1;padding:8px 0;border-radius:16px;border:none;
+  background:transparent;color:rgba(255,255,255,.5);
+  font-size:14px;cursor:pointer;font-family:inherit;
+  font-weight:700;transition:all .2s
+}
+.seg-btn.active{background:rgba(255,255,255,.2);color:#fff}
+.ainput{
+  width:100%;padding:11px 16px;border-radius:12px;
+  border:1.5px solid rgba(255,255,255,.15);
+  background:rgba(255,255,255,.08);color:#fff;
+  font-size:15px;font-family:inherit;outline:none;transition:border-color .2s
+}
+.ainput:focus{border-color:rgba(255,112,67,.7)}
+.ainput::placeholder{color:rgba(255,255,255,.3)}
+#aform-login,#aform-reg{width:100%;display:flex;flex-direction:column;gap:8px}
+#aform-reg{display:none}
+#auth-err{color:#ff7777;font-size:13px;min-height:18px;text-align:center;width:100%}
+.lb-box{
+  background:rgba(0,0,0,.48);backdrop-filter:blur(14px);
+  border:1px solid rgba(255,255,255,.1);border-radius:20px;
+  padding:22px 18px 18px;width:min(360px,92vw);
+  display:flex;flex-direction:column;align-items:center;gap:10px
+}
+#lb-list{overflow-y:auto;max-height:46vh;width:100%;display:flex;flex-direction:column;gap:5px}
+.lb-row{
+  color:#fff;font-size:14px;padding:10px 14px;
+  background:rgba(255,255,255,.07);border-radius:11px;
+  display:flex;align-items:center;gap:8px
+}
+.lb-rank{font-weight:700;font-size:15px;min-width:26px;text-align:center;flex-shrink:0}
+.lb-user{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-val{color:#FFD700;font-weight:700;font-size:14px;flex-shrink:0}
+#lb-level-pick{
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
+  color:#fff;padding:7px 14px;border-radius:11px;
+  font-size:13px;font-family:inherit;outline:none
+}
+#lb-level-pick option{background:#1a2040;color:#fff}
 </style>
 </head>
 <body>
@@ -182,8 +235,11 @@ canvas{display:block}
     消光所有物品 → 抓住大鹅！<br>
     🍳 摇晃手机或点颠锅翻底层
   </p>
-  <button class="btn btn-primary" id="btn-start">开始游戏</button>
+  <button class="btn btn-primary" id="btn-continue" style="display:none">▶ 继续游戏</button>
+  <button class="btn btn-primary" id="btn-start">新游戏</button>
   <button class="btn btn-secondary" id="btn-open-levels">🗺 选择关卡</button>
+  <button class="btn" id="btn-show-leaderboard" style="background:linear-gradient(135deg,#f9a825,#e65100)">🏆 排行榜</button>
+  <button class="btn" id="btn-show-auth" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);font-size:14px;padding:10px 32px;box-shadow:none">👤 登录/注册</button>
 </div>
 
 <!-- Level select screen -->
@@ -217,8 +273,50 @@ canvas{display:block}
   <button class="btn btn-secondary" id="btn-retry">重新挑战</button>
 </div>
 
+<!-- Auth screen -->
+<div class="screen" id="scr-auth">
+  <div class="auth-box">
+    <div style="font-size:56px;line-height:1.2;animation:bob 2s ease-in-out infinite">🪿</div>
+    <div style="color:#fff;font-size:22px;font-weight:800">抓大鹅</div>
+    <div class="segmented">
+      <button class="seg-btn active" id="atab-login-btn">登录</button>
+      <button class="seg-btn" id="atab-reg-btn">注册</button>
+    </div>
+    <div id="aform-login">
+      <input class="ainput" id="a-email" type="email" placeholder="邮箱" autocomplete="email">
+      <input class="ainput" id="a-pass" type="password" placeholder="密码" autocomplete="current-password">
+      <button class="btn btn-primary" id="btn-do-login" style="width:100%;padding:12px;margin:2px 0">登录</button>
+    </div>
+    <div id="aform-reg">
+      <input class="ainput" id="a-uname" type="text" placeholder="用户名（2~16位）" autocomplete="username">
+      <input class="ainput" id="a-email2" type="email" placeholder="邮箱" autocomplete="email">
+      <input class="ainput" id="a-pass2" type="password" placeholder="密码（至少6位）" autocomplete="new-password">
+      <button class="btn btn-primary" id="btn-do-reg" style="width:100%;padding:12px;margin:2px 0">注册</button>
+    </div>
+    <p id="auth-err"></p>
+    <button class="btn" id="btn-auth-skip" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);font-size:13px;padding:9px 28px;box-shadow:none;color:rgba(255,255,255,.7)">跳过 · 游客模式</button>
+  </div>
+</div>
+
+<!-- Leaderboard screen -->
+<div class="screen" id="scr-leader">
+  <div class="lb-box">
+    <div style="color:#fff;font-size:22px;font-weight:800">🏆 排行榜</div>
+    <div class="segmented">
+      <button class="seg-btn active" id="lbtab-score-btn">最高分</button>
+      <button class="seg-btn" id="lbtab-time-btn">⚡ 关卡速通</button>
+    </div>
+    <div id="lb-level-row" style="display:none;width:100%;text-align:center">
+      <select id="lb-level-pick"></select>
+    </div>
+    <div id="lb-list"></div>
+    <button class="btn" id="btn-lb-back" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);font-size:14px;padding:10px 32px;box-shadow:none">← 返回</button>
+  </div>
+</div>
+
 <div id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script>
 'use strict';
@@ -277,6 +375,57 @@ const LEVELS = [
 ];
 
 const GOOSE_SERVER = 'http://localhost:3001/goose';
+
+// ── Supabase Backend Config ────────────────────────────────────────
+// Setup (one-time, ~5 min):
+// 1. Create free project at supabase.com
+// 2. Auth → Settings → disable email confirmation
+// 3. SQL Editor → run this block:
+//
+//   create table public.profiles (
+//     id uuid references auth.users(id) on delete cascade primary key,
+//     username text unique not null,
+//     created_at timestamptz default now()
+//   );
+//   create table public.progress (
+//     user_id uuid references auth.users(id) on delete cascade primary key,
+//     username text not null default '',
+//     unlocked_level int default 0,
+//     total_score int default 0,
+//     updated_at timestamptz default now()
+//   );
+//   create table public.leaderboard (
+//     id bigserial primary key,
+//     user_id uuid references auth.users(id) on delete cascade,
+//     username text not null,
+//     level int not null,
+//     time_ms int not null,
+//     created_at timestamptz default now(),
+//     unique(user_id, level)
+//   );
+//   alter table profiles   enable row level security;
+//   alter table progress   enable row level security;
+//   alter table leaderboard enable row level security;
+//   create policy "pub_read" on profiles   for select using (true);
+//   create policy "own_ins"  on profiles   for insert with check (auth.uid()=id);
+//   create policy "own_upd"  on profiles   for update using (auth.uid()=id);
+//   create policy "pub_read" on progress   for select using (true);
+//   create policy "own_ins"  on progress   for insert with check (auth.uid()=user_id);
+//   create policy "own_upd"  on progress   for update using (auth.uid()=user_id);
+//   create policy "pub_read" on leaderboard for select using (true);
+//   create policy "own_ins"  on leaderboard for insert with check (auth.uid()=user_id);
+//   create policy "own_upd"  on leaderboard for update using (auth.uid()=user_id);
+//
+// 4. Settings → API → copy Project URL and anon/public key:
+const SB_URL = '';  // 'https://xxxxxxxx.supabase.co'
+const SB_KEY = '';  // anon public key
+
+// ── Auth / backend runtime state ──────────────────────────────────
+let sb = null;        // Supabase client (null = not configured)
+let sbUser = null;    // logged-in user object
+let sbUsername = '';  // display name
+let _lbMode = 'score'; // leaderboard view: 'score' | 'time'
+let _lvStart = 0;     // Date.now() when current level began
 const FALLBACK = {
   pickup:    ['哼，被拿走了', '嘎！', '放下！', '别动！'],
   match:     ['呱！消了！', '嘎嘎漂亮！', '连消！', '厉害～'],
@@ -285,6 +434,185 @@ const FALLBACK = {
   win:       ['被你找到了...', '呱...输了...', '嗯...算你厉害'],
   lose:      ['嘎嘎嘎赢了！', '呱！你输了！', '哈哈哈！'],
 };
+
+// ── LocalStorage progress (always-on guest fallback) ──────────────
+function lsSave() {
+  const nextLv = Math.min(G.level + 1, LEVELS.length - 1);
+  try { localStorage.setItem('goose_pg', JSON.stringify({ nextLv, score: G.score })); } catch(e){}
+}
+function lsLoad() {
+  try {
+    const d = JSON.parse(localStorage.getItem('goose_pg') || 'null');
+    if (d?.nextLv > 0) {
+      G.level = d.nextLv; G.score = d.score || 0;
+      syncScore(); updateStartBtns();
+      setTimeout(() => toast(`📱 上次进度：第${G.level+1}关，继续加油！`), 700);
+    }
+  } catch(e) {}
+}
+function updateStartBtns() {
+  const cb = document.getElementById('btn-continue');
+  if (!cb) return;
+  if (G.level > 0) {
+    cb.textContent = `▶ 继续第${G.level+1}关`;
+    cb.style.display = '';
+  } else {
+    cb.style.display = 'none';
+  }
+}
+
+// ── Supabase init ──────────────────────────────────────────────────
+async function initSB() {
+  if (!SB_URL || !SB_KEY) { lsLoad(); return; }
+  try {
+    sb = window.supabase.createClient(SB_URL, SB_KEY);
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) { sbUser = session.user; await _sbLoadAll(); }
+    else { lsLoad(); }
+    sb.auth.onAuthStateChange(async (_ev, sess) => {
+      if (sess) { sbUser = sess.user; await _sbLoadAll(); }
+      else { sbUser = null; sbUsername = ''; _updateAuthBtn(); }
+    });
+  } catch(e) { console.warn('[SB init]', e); lsLoad(); }
+}
+
+async function _sbLoadAll() {
+  try {
+    const { data: p } = await sb.from('profiles').select('username').eq('id', sbUser.id).maybeSingle();
+    sbUsername = p?.username || sbUser.email?.split('@')[0] || '玩家';
+    _updateAuthBtn();
+    const { data: pr } = await sb.from('progress')
+      .select('unlocked_level,total_score').eq('user_id', sbUser.id).maybeSingle();
+    if (pr?.unlocked_level > 0) {
+      G.level = Math.max(G.level, pr.unlocked_level);
+      G.score = pr.total_score || 0;
+      syncScore(); updateStartBtns();
+      setTimeout(() => toast(`✅ ${sbUsername}，已恢复第${G.level+1}关！`), 700);
+    }
+  } catch(e) { console.warn('[SB load]', e); }
+}
+
+function _updateAuthBtn() {
+  const btn = document.getElementById('btn-show-auth');
+  if (!btn) return;
+  if (sbUsername) {
+    btn.textContent = `👤 ${sbUsername}`;
+    btn.style.background = 'rgba(76,175,80,.28)';
+    btn.style.borderColor = 'rgba(76,175,80,.4)';
+  } else {
+    btn.textContent = '👤 登录/注册';
+    btn.style.background = 'rgba(255,255,255,.12)';
+    btn.style.borderColor = 'rgba(255,255,255,.2)';
+  }
+}
+
+function _sbSetErr(msg) {
+  const el = document.getElementById('auth-err');
+  if (el) el.textContent = msg;
+}
+
+// ── Auth actions ───────────────────────────────────────────────────
+async function sbDoLogin(email, pass) {
+  _sbSetErr('');
+  if (!email || !pass) { _sbSetErr('请填写邮箱和密码'); return false; }
+  const { error } = await sb.auth.signInWithPassword({ email: email.trim(), password: pass });
+  if (error) { _sbSetErr(error.message); return false; }
+  updateStartBtns(); showScr('scr-start');
+  return true;
+}
+
+async function sbDoRegister(email, pass, uname) {
+  _sbSetErr('');
+  const name = uname.trim();
+  if (name.length < 2 || name.length > 16) { _sbSetErr('用户名需2~16个字符'); return false; }
+  if (pass.length < 6) { _sbSetErr('密码至少6位'); return false; }
+  if (!email) { _sbSetErr('请填写邮箱'); return false; }
+  const { data, error } = await sb.auth.signUp({ email: email.trim(), password: pass });
+  if (error) { _sbSetErr(error.message); return false; }
+  if (data?.user) {
+    try {
+      await sb.from('profiles').insert({ id: data.user.id, username: name });
+      await sb.from('progress').insert({ user_id: data.user.id, username: name, unlocked_level: 0, total_score: 0 });
+    } catch(e) {}
+  }
+  toast('注册成功！如需验证邮箱请查收邮件');
+  updateStartBtns(); showScr('scr-start');
+  return true;
+}
+
+async function sbDoLogout() {
+  if (!sb) return;
+  await sb.auth.signOut();
+  sbUser = null; sbUsername = '';
+  _updateAuthBtn();
+  toast('已退出登录');
+}
+
+// ── Save win progress + personal best ─────────────────────────────
+async function sbSaveWin(level, timeMs) {
+  lsSave(); // always persist to localStorage
+  if (!sb || !sbUser) return;
+  try {
+    const nextLv = Math.min(level + 1, LEVELS.length - 1);
+    await sb.from('progress').upsert({
+      user_id: sbUser.id, username: sbUsername,
+      unlocked_level: nextLv, total_score: G.score,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+
+    const { data: ex } = await sb.from('leaderboard')
+      .select('time_ms').eq('user_id', sbUser.id).eq('level', level).maybeSingle();
+    if (!ex || timeMs < ex.time_ms) {
+      await sb.from('leaderboard').upsert({
+        user_id: sbUser.id, username: sbUsername, level, time_ms: timeMs
+      }, { onConflict: 'user_id,level' });
+      if (ex) setTimeout(() => toast(`🏆 第${level+1}关新纪录！${_fmtMs(timeMs)}`), 1400);
+    }
+  } catch(e) { console.warn('[SB save]', e); }
+}
+
+function _fmtMs(ms) {
+  const s = ms / 1000;
+  return s < 60 ? `${s.toFixed(1)}s` : `${(s/60|0)}m${(s%60|0)}s`;
+}
+
+// ── Leaderboard ────────────────────────────────────────────────────
+async function openLeaderboard() {
+  const sel = document.getElementById('lb-level-pick');
+  if (sel && !sel.options.length)
+    LEVELS.forEach((lv, i) => sel.add(new Option(lv.label, i)));
+  showScr('scr-leader');
+  await _renderLB();
+}
+
+async function _renderLB() {
+  const list = document.getElementById('lb-list');
+  if (!sb) {
+    list.innerHTML = '<div style="color:rgba(255,255,255,.4);padding:24px;text-align:center">请先配置 Supabase 后端<br><small style="font-size:11px;opacity:.6">填写 SB_URL 和 SB_KEY 常量</small></div>';
+    return;
+  }
+  list.innerHTML = '<div style="color:rgba(255,255,255,.35);padding:20px;text-align:center">加载中…</div>';
+  try {
+    let rows = [];
+    if (_lbMode === 'score') {
+      const { data } = await sb.from('progress')
+        .select('username,total_score').order('total_score', { ascending:false }).limit(10);
+      rows = (data||[]).map((r,i) => ({ i, u: r.username||'?', v:`${r.total_score} 分` }));
+    } else {
+      const lv = parseInt(document.getElementById('lb-level-pick')?.value || '0');
+      const { data } = await sb.from('leaderboard')
+        .select('username,time_ms').eq('level', lv)
+        .order('time_ms', { ascending:true }).limit(10);
+      rows = (data||[]).map((r,i) => ({ i, u: r.username||'?', v: _fmtMs(r.time_ms) }));
+    }
+    const medals = ['🥇','🥈','🥉'];
+    list.innerHTML = rows.length
+      ? rows.map(r => `<div class="lb-row"><span class="lb-rank">${medals[r.i]||r.i+1}</span><span class="lb-user">${r.u}</span><span class="lb-val">${r.v}</span></div>`).join('')
+      : '<div style="color:rgba(255,255,255,.35);padding:20px;text-align:center">暂无记录</div>';
+  } catch(e) {
+    list.innerHTML = '<div style="color:#ff8080;padding:20px;text-align:center">加载失败，请重试</div>';
+  }
+}
 
 // ── Three.js ──────────────────────────────────────────────────────
 let scene, camera, renderer, raycaster, hoveredItem = null;
@@ -1328,6 +1656,7 @@ function clearLevel() {
 }
 
 function startLevel(idx) {
+  _lvStart = Date.now();
   clearLevel();
   // Reset camera to top-down view immediately (no tween, screen transition covers it)
   _camTween = null;
@@ -1478,12 +1807,14 @@ function tweenCamera(toPos, toLook, dur) {
 }
 
 function doWin() {
+  const timeMs = Date.now() - _lvStart;
   G.running = false;
   G.score += 100 + G.level*30; syncScore();
+  sbSaveWin(G.level, timeMs); // async — persists to localStorage + Supabase
   sfxWin();
   const isLast = G.level >= LEVELS.length - 1;
   document.getElementById('win-msg').textContent =
-    `得分 ${G.score} 分！${isLast ? '🏆 你是抓鹅传说！' : '继续下一关吧～'}`;
+    `得分 ${G.score} 分  ⏱ ${_fmtMs(timeMs)}${isLast ? '  🏆 你是抓鹅传说！' : ''}`;
   if (isLast) setTimeout(launchFireworks, 400);
   showScr('scr-win');
 }
@@ -1738,13 +2069,96 @@ function initInput() {
   });
   document.getElementById('btn-lv-prev').addEventListener('click', () => { _lvPage--; renderLevelGrid(); });
   document.getElementById('btn-lv-next').addEventListener('click', () => { _lvPage++; renderLevelGrid(); });
-  document.getElementById('btn-lv-close').addEventListener('click', () => showScr('scr-start'));
+  document.getElementById('btn-lv-close').addEventListener('click', () => { updateStartBtns(); showScr('scr-start'); });
   document.getElementById('btn-revive').addEventListener('click', doRevive);
   document.getElementById('btn-next').addEventListener('click', () => {
     G.level = Math.min(G.level+1, LEVELS.length-1); hideScrAll(); startLevel(G.level);
   });
   document.getElementById('btn-retry').addEventListener('click',  () => { hideScrAll(); startLevel(G.level); });
   document.getElementById('btn-retry2').addEventListener('click', () => { hideScrAll(); startLevel(G.level); });
+
+  // Continue saved game
+  document.getElementById('btn-continue').addEventListener('click', () => {
+    ensureAudio(); G.revives = 2;
+    document.getElementById('revive-cnt').textContent = '💊×2';
+    hideScrAll(); startLevel(G.level);
+  });
+
+  // Leaderboard
+  document.getElementById('btn-show-leaderboard').addEventListener('click', () => { ensureAudio(); openLeaderboard(); });
+  document.getElementById('btn-lb-back').addEventListener('click', () => { updateStartBtns(); showScr('scr-start'); });
+  document.getElementById('lbtab-score-btn').addEventListener('click', () => {
+    _lbMode = 'score';
+    document.getElementById('lbtab-score-btn').classList.add('active');
+    document.getElementById('lbtab-time-btn').classList.remove('active');
+    document.getElementById('lb-level-row').style.display = 'none';
+    _renderLB();
+  });
+  document.getElementById('lbtab-time-btn').addEventListener('click', () => {
+    _lbMode = 'time';
+    document.getElementById('lbtab-time-btn').classList.add('active');
+    document.getElementById('lbtab-score-btn').classList.remove('active');
+    document.getElementById('lb-level-row').style.display = '';
+    _renderLB();
+  });
+  document.getElementById('lb-level-pick').addEventListener('change', _renderLB);
+
+  // Auth screen
+  let _authLogoutT = 0;
+  document.getElementById('btn-show-auth').addEventListener('click', () => {
+    if (sbUsername) {
+      const now = Date.now();
+      if (now - _authLogoutT < 2000) { sbDoLogout(); _authLogoutT = 0; }
+      else { _authLogoutT = now; toast(`再按一次退出「${sbUsername}」`); }
+    } else if (!sb) {
+      toast('请先配置 SB_URL / SB_KEY 后重新部署');
+    } else {
+      document.getElementById('auth-err').textContent = '';
+      document.getElementById('aform-login').style.display = 'flex';
+      document.getElementById('aform-reg').style.display = 'none';
+      document.getElementById('atab-login-btn').classList.add('active');
+      document.getElementById('atab-reg-btn').classList.remove('active');
+      showScr('scr-auth');
+    }
+  });
+
+  document.getElementById('btn-auth-skip').addEventListener('click', () => { updateStartBtns(); showScr('scr-start'); });
+
+  document.getElementById('atab-login-btn').addEventListener('click', () => {
+    document.getElementById('aform-login').style.display = 'flex';
+    document.getElementById('aform-reg').style.display = 'none';
+    document.getElementById('atab-login-btn').classList.add('active');
+    document.getElementById('atab-reg-btn').classList.remove('active');
+    document.getElementById('auth-err').textContent = '';
+  });
+  document.getElementById('atab-reg-btn').addEventListener('click', () => {
+    document.getElementById('aform-login').style.display = 'none';
+    document.getElementById('aform-reg').style.display = 'flex';
+    document.getElementById('atab-reg-btn').classList.add('active');
+    document.getElementById('atab-login-btn').classList.remove('active');
+    document.getElementById('auth-err').textContent = '';
+  });
+
+  document.getElementById('btn-do-login').addEventListener('click', async function() {
+    if (!sb) { _sbSetErr('请先配置 Supabase 后端'); return; }
+    this.textContent = '登录中…'; this.disabled = true;
+    await sbDoLogin(
+      document.getElementById('a-email').value,
+      document.getElementById('a-pass').value
+    );
+    this.textContent = '登录'; this.disabled = false;
+  });
+
+  document.getElementById('btn-do-reg').addEventListener('click', async function() {
+    if (!sb) { _sbSetErr('请先配置 Supabase 后端'); return; }
+    this.textContent = '注册中…'; this.disabled = true;
+    await sbDoRegister(
+      document.getElementById('a-email2').value,
+      document.getElementById('a-pass2').value,
+      document.getElementById('a-uname').value
+    );
+    this.textContent = '注册'; this.disabled = false;
+  });
 
   // Device shake → 颠锅
   // Use pure acceleration (no gravity) when available; fall back to total accel.
@@ -1815,6 +2229,7 @@ function loop(now) {
 initThree();
 rebuildTrayDOM();
 initInput();
+initSB(); // async — restores progress when session found
 requestAnimationFrame(loop);
 </script>
 </body>
